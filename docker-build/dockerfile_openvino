@@ -1,0 +1,20 @@
+FROM gar-registry.caas.intel.com/virtiot/vaapi-dxg:base
+#FROM openvino/ubuntu20_data_dev:2021.4.2
+#FROM dlstreamer/dlstreamer:latest
+
+USER root
+RUN apt install -y curl gpg-agent software-properties-common
+RUN curl https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | apt-key add -
+RUN echo "deb https://apt.repos.intel.com/openvino/2022 `. /etc/os-release && echo ${UBUNTU_CODENAME}` main" | tee /etc/apt/sources.list.d/intel-openvino-2022.list
+RUN apt update && apt install -y openvino-libraries-dev-2022.1.0 \
+openvino-samples-2022.1.0 libopenvino-python-2022.1.0
+
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+/opt/intel/openvino_2022/install_dependencies/install_NEO_OCL_driver.sh -y
+#RUN apt update && apt install -y intel-dlstreamer-dev
+#RUN /opt/intel/dlstreamer/install_dependencies/install_media_driver.sh -y
+
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+python3 -m pip install --upgrade pip && \
+python3 -m pip install --ignore-installed openvino-dev
+
