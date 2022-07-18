@@ -62,8 +62,8 @@ mkdir ~/dlstreamer_gst/build && \
 cd ~/dlstreamer_gst/build && \
 cmake \
 -DCMAKE_INSTALL_PREFIX=/opt/intel/dlstreamer \
--DCMAKE_BUILD_TYPE=Debug .. \
 -DENABLE_VAAPI=ON \
+-DCMAKE_BUILD_TYPE=Debug .. \
 && \
 make -j$(nproc) && make install && ldconfig 
 #source /opt/intel/dlstreamer/gstreamer/setupvars.sh && \
