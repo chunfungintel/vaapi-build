@@ -60,8 +60,12 @@ RUN source /opt/intel/openvino_2022/setupvars.sh && \
 source /opt/intel/oneapi/compiler/latest/env/vars.sh && \
 mkdir ~/dlstreamer_gst/build && \
 cd ~/dlstreamer_gst/build && \
-cmake -DCMAKE_INSTALL_PREFIX=/opt/intel/dlstreamer -DCMAKE_BUILD_TYPE=Debug .. && \
-make -j$(nproc) && make install
+cmake \
+-DCMAKE_INSTALL_PREFIX=/opt/intel/dlstreamer \
+-DCMAKE_BUILD_TYPE=Debug .. \
+-DENABLE_VAAPI=ON \
+&& \
+make -j$(nproc) && make install && ldconfig 
 #source /opt/intel/dlstreamer/gstreamer/setupvars.sh && \
 
 
