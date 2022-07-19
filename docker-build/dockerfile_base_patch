@@ -1,0 +1,77 @@
+FROM ubuntu:20.04
+#FROM openvino/ubuntu20_data_dev:2021.4.2
+#FROM dlstreamer/dlstreamer:latest
+
+USER root
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+ENV DEBIAN_FRONTEND noninteractive
+
+ENV FTP_PROXY=http://proxy-png.intel.com:911
+ENV ftp_proxy=http://proxy-png.intel.com:911
+ENV HTTP_PROXY=http://proxy-png.intel.com:911
+ENV http_proxy=http://proxy-png.intel.com:911
+ENV HTTPS_PROXY=http://proxy-png.intel.com:912
+ENV https_proxy=http://proxy-png.intel.com:912
+ENV SOCKS_PROXY=http://proxy-png.intel.com:1080
+
+RUN apt update && \
+apt install -y \
+cmake ninja-build clang bison flex unzip dos2unix \
+xsltproc python3-pip libpciaccess-dev libdrm-dev libtool pkg-config \
+libglib2.0-dev libgtk2.0-dev python-mako libelf-dev libx11-dev libx11-xcb-dev \
+x11proto-dev x11proto-core-dev libxrandr-dev libx11-xcb-dev \
+pkg-config autoconf libtool libpciaccess-dev libxcb-xfixes0-dev \
+libxfixes-dev  libxcb-glx0-dev  libxxf86vm-dev  libxshmfence-dev \
+libxcb-dri2-0-dev libxcb-dri3-dev libxcb-present-dev libxcb-shm0-dev \
+git
+
+RUN pip3 install -U meson==0.54.2
+
+ENV SRC_DIR=/root/media_src
+ENV DISPLAY=:0
+ENV LIBVA_DRIVER_NAME=libgallium
+ENV LIBVA_DRIVERS_PATH=/root
+ENV LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH
+
+RUN git clone https://github.com/intel/libva.git $SRC_DIR/libva && \
+cd $SRC_DIR/libva && \
+./autogen.sh --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu && make && make install
+
+RUN git clone https://github.com/intel/libva-utils.git $SRC_DIR/libva-utils && \
+cd $SRC_DIR/libva-utils && \
+./autogen.sh --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu && make && make install
+
+RUN git clone https://github.com/intel/gmmlib.git $SRC_DIR/gmmlib && \
+cd $SRC_DIR/gmmlib && \
+mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/usr .. && make && make install
+
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git $SRC_DIR/gstreamer && \
+cd $SRC_DIR/gstreamer && git checkout 1.19.2 && \
+meson build -Dprefix=/usr -Dlibdir=/usr/lib/x86_64-linux-gnu && ninja -C build && ninja -C build install
+
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gst-plugins-base.git $SRC_DIR/gst-plugins-base && \
+cd $SRC_DIR/gst-plugins-base && git checkout 1.19.2 && \
+meson build -Dprefix=/usr && ninja -C build && ninja -C build install
+
+RUN git clone https://github.com/GStreamer/gst-plugins-good.git $SRC_DIR/gst-plugins-good && \
+cd $SRC_DIR/gst-plugins-good && git checkout 1.19.2 && \
+meson build -Dprefix=/usr && ninja -C build && ninja -C build install
+
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad.git $SRC_DIR/gst-plugins-bad && \
+cd $SRC_DIR/gst-plugins-bad && git checkout 1.19.2 && \
+meson build -Dprefix=/usr && ninja -C build && ninja -C build install
+
+RUN git clone https://github.com/GStreamer/gstreamer-vaapi.git $SRC_DIR/gstreamer-vaapi && \
+cd $SRC_DIR/gstreamer-vaapi && git checkout 1.19.2 && \
+curl -sSL https://gitlab.freedesktop.org/gstreamer/gstreamer-vaapi/-/merge_requests/435.patch -o gst-vaapi-peek-vadisplay.patch && \
+curl -sSL https://raw.githubusercontent.com/openvinotoolkit/dlstreamer_gst/master/patches/gstreamer-vaapi/dma-vaapiencode.patch -o dma-vaapiencode.patch && \
+patch -p1 < gst-vaapi-peek-vadisplay.patch && \
+patch -p1 < dma-vaapiencode.patch && \
+meson build -Dprefix=/usr && ninja -C build && ninja -C build install 
+
+COPY libgallium_drv_video.so /root/libgallium_drv_video.so
+RUN apt install -y strace x11-apps vim xvfb
+
+#RUN apt install -y url gpg-agent software-properties-common
+#RUN curl https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | apt-key add -
