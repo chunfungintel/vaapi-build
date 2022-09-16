@@ -72,8 +72,6 @@ RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-conf
 RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-low-na-avc-gpu.json
 RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-mid-na-avc-gpu.json
 
-COPY run.sh /home/kpi/run.sh
-
 RUN apt install -y jq
 RUN jq 'del(.subPipelines.aibox_mid_pipeline_rtspsrc.elements[] | select(.elementName == "gvawatermark") )' \
 /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
@@ -85,12 +83,13 @@ RUN jq 'del(.subPipelines.theo_mid_pipeline.elements[] | select(.elementName == 
 /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
 cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
 
-
-
 COPY VER6-va-sharing /home/kpi/NEO
-RUN dpkg -i /home/kpi/NEO/*deb && cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
+RUN cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
 
-COPY dockerfile_nvr_official_vaapi_vasharing_wlc /home/kpi/dockerfile
+
+COPY run.sh /home/kpi/run.sh
+COPY dockerfile_nvr_official_vaapi_wlc_opencl /home/kpi/dockerfile
+
 
 WORKDIR /home/kpi
 ENTRYPOINT ["/bin/bash", "./run.sh"]

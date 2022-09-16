@@ -75,6 +75,19 @@ RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-conf
 RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-low-na-avc-gpu.json
 RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-mid-na-avc-gpu.json
 
+
+RUN apt install -y jq
+RUN jq 'del(.subPipelines.aibox_mid_pipeline_rtspsrc.elements[] | select(.elementName == "gvawatermark") )' \
+/home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
+cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+RUN jq 'del(.subPipelines.aibox_mid_pipeline_filesrc.elements[] | select(.elementName == "gvawatermark") )' \
+/home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
+cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+RUN jq 'del(.subPipelines.theo_mid_pipeline.elements[] | select(.elementName == "gvawatermark") )' \
+/home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
+cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+
+
 COPY run.sh /home/kpi/run.sh
 
 
