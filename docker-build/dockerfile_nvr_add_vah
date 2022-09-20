@@ -1,0 +1,46 @@
+#FROM gar-registry.caas.intel.com/virtiot/nvr-eflow:vaapih264
+FROM gar-registry.caas.intel.com/virtiot/nvr-eflow:clean
+
+USER root
+
+ENV FTP_PROXY=http://proxy-chain.intel.com:911
+ENV ftp_proxy=http://proxy-chain.intel.com:911
+
+ENV HTTP_PROXY=http://proxy-chain.intel.com:911
+ENV http_proxy=http://proxy-chain.intel.com:911
+
+ENV HTTPS_PROXY=http://proxy-chain.intel.com:912
+ENV https_proxy=http://proxy-chain.intel.com:912
+
+ENV SOCKS_PROXY=http://proxy-chain.intel.com:1080
+
+ENV no_proxy=10.0.0.0/8,192.168.0.0/16,localhost,.local,127.0.0.0/8,af01p-png.devtools.intel.com,ubit-artifactory-or.intel.com
+ENV NO_PROXY=10.0.0.0/8,192.168.0.0/16,localhost,.local,127.0.0.0/8,af01p-png.devtools.intel.com,ubit-artifactory-or.intel.com
+
+RUN apt update && \
+apt install -y vainfo gdb x11-apps wget clinfo strace vim git xvfb
+
+WORKDIR /root
+RUN wget https://github.com/aler9/rtsp-simple-server/releases/download/v0.19.3/rtsp-simple-server_v0.19.3_linux_amd64.tar.gz && \
+tar -xvf rtsp-simple-server_v0.19.3_linux_amd64.tar.gz
+
+#RUN apt install -y openvino-samples-2022.1.0
+
+COPY neo /root/neo
+#RUN cd /root/neo && dpkg -i *.deb
+
+COPY dockerfile_official_add /root/dockerfile_official_add
+COPY libgallium_drv_video.so /root/libgallium_drv_video.so
+COPY libgallium_114_drv_video.so /root/libgallium_114_drv_video.so
+COPY libgallium_114_gmm_drv_video.so /root/libgallium_114_gmm_drv_video.so
+COPY libgallium_nvr_drv_video.so /root/libgallium_nvr_drv_video.so
+
+
+COPY hello /home/dlstreamer/hello
+COPY intel /home/dlstreamer/intel
+
+#USER dlstreamer
+
+WORKDIR ${DLSTREAMER_DIR}/samples
+CMD ["/bin/bash"]
+

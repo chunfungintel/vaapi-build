@@ -1,0 +1,19 @@
+FROM intel/dlstreamer:2022.1.1-ubuntu20-dpcpp-devel
+
+USER root
+
+RUN apt install -y vainfo gdb x11-apps wget clinfo strace vim
+
+COPY dockerfile_official_add /root/dockerfile_official_add
+COPY libgallium_drv_video.so /root/libgallium_drv_video.so
+COPY libgallium_114_drv_video.so /root/libgallium_114_drv_video.so
+COPY neo /root/neo
+RUN cd /root/neo && dpkg -i *.deb
+
+RUN apt install -y openvino-samples-2022.1.0
+
+USER dlstreamer
+
+WORKDIR ${DLSTREAMER_DIR}/samples
+CMD ["/bin/bash"]
+

@@ -1,0 +1,95 @@
+#FROM gar-registry.caas.intel.com/virtiot/nvr:nvr-aibox-vaapi-final
+FROM gar-registry.caas.intel.com/virtiot/vaapi-dxg:clean_latest
+
+USER root
+
+ENV FTP_PROXY=http://proxy-chain.intel.com:911
+ENV ftp_proxy=http://proxy-chain.intel.com:911
+
+ENV HTTP_PROXY=http://proxy-chain.intel.com:911
+ENV http_proxy=http://proxy-chain.intel.com:911
+
+ENV HTTPS_PROXY=http://proxy-chain.intel.com:912
+ENV https_proxy=http://proxy-chain.intel.com:912
+
+ENV SOCKS_PROXY=http://proxy-chain.intel.com:1080
+
+ENV no_proxy=10.0.0.0/8,192.168.0.0/16,localhost,.local,127.0.0.0/8,af01p-png.devtools.intel.com,ubit-artifactory-or.intel.com
+ENV NO_PROXY=10.0.0.0/8,192.168.0.0/16,localhost,.local,127.0.0.0/8,af01p-png.devtools.intel.com,ubit-artifactory-or.intel.com
+
+RUN apt update && \
+apt install -y vainfo gdb x11-apps wget clinfo strace vim git xvfb
+
+WORKDIR /root
+RUN wget https://github.com/aler9/rtsp-simple-server/releases/download/v0.19.3/rtsp-simple-server_v0.19.3_linux_amd64.tar.gz && \
+tar -xvf rtsp-simple-server_v0.19.3_linux_amd64.tar.gz
+
+COPY dockerfile_nvr_official_vaapi /root/dockerfile_nvr_official_vaapi
+
+COPY hello /home/dlstreamer/hello
+COPY intel /home/dlstreamer/intel
+
+
+RUN pip3 install -U meson==0.54.2 mako
+RUN apt update && apt install -y glslang-tools llvm ninja-build \
+libxcb-dri2-0-dev libxcb-dri3-dev libxcb-present-dev libxcb-shm0-dev \
+libxshmfence-dev
+
+RUN git clone https://gitlab.freedesktop.org/mesa/mesa.git /root/mesa && \
+cd /root/mesa && \
+meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc && \
+ninja -C build
+
+#meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc -Dbuildtype=debug && \
+
+#RUN sed -i '/cd \${WKLD_DIR}/d' /home/kpi/run.sh
+ENV LIBVA_DRIVERS_PATH=/root/mesa/build/src/gallium/targets/va
+ENV LIBVA_DRIVER_NAME=libgallium
+ENV LD_LIBRARY_PATH=/usr/lib/wsl/lib:${LD_LIBRARY_PATH}
+
+COPY VER6-va-sharing /home/kpi/NEO
+RUN dpkg -i /home/kpi/NEO/*deb && \
+cp /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so /home/kpi/NEO/libigdrcl.so.old && \
+cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
+
+#RUN sed -i 's/video\/x-raw(memory:VASurface)/video\/x-raw/g' /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+#RUN sed -i 's/tune=3//g' /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+#RUN sed -i 's/,height=720,width=1280//g'  /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+#
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-low-na-avc-cpu.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-low-na-avc-gpu.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-mid-na-avc-cpu.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-mid-na-avc-gpu.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-proxy-aiboxTheo-low-na-avc-cpu.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-proxy-aiboxTheo-low-na-avc-gpu.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-proxy-aiboxTheo-mid-na-avc-cpu.json
+#RUN sed -i 's/"vaapi"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-proxy-aiboxTheo-mid-na-avc-gpu.json
+#
+#RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-proxy-aiboxTheo-low-na-avc-gpu.json
+#RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-proxy-aiboxTheo-mid-na-avc-gpu.json
+#RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-low-na-avc-gpu.json
+#RUN sed -i 's/"vaapi-surface-sharing"/"auto"/g' /home/kpi/workload/workload-config/nvr-adl-measured-aibox-mid-na-avc-gpu.json
+
+COPY run.sh /home/kpi/run.sh
+RUN sed -i 's!//console.log(pipeline.cmd);!console.log(pipeline.cmd);!g' /home/kpi/workload/pipelineExecutor/pipeline-executor.js
+
+#RUN apt install -y jq
+#RUN jq 'del(.subPipelines.aibox_mid_pipeline_rtspsrc.elements[] | select(.elementName == "gvawatermark") )' \
+#/home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
+#cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+#RUN jq 'del(.subPipelines.aibox_mid_pipeline_filesrc.elements[] | select(.elementName == "gvawatermark") )' \
+#/home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
+#cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+#RUN jq 'del(.subPipelines.theo_mid_pipeline.elements[] | select(.elementName == "gvawatermark") )' \
+#/home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
+#cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
+
+
+COPY dockerfile_nvr_self_build_default /home/kpi/dockerfile
+
+
+
+WORKDIR /home/kpi
+ENTRYPOINT ["/bin/bash", "./run.sh"]
+
