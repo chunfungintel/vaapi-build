@@ -84,7 +84,9 @@ RUN jq 'del(.subPipelines.theo_mid_pipeline.elements[] | select(.elementName == 
 cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
 
 COPY VER6-va-sharing /home/kpi/NEO
-RUN cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
+RUN dpkg -i /home/kpi/NEO/*deb && \
+cp /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so /home/kpi/NEO/libigdrcl.so.old && \
+cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
 
 
 COPY run.sh /home/kpi/run.sh

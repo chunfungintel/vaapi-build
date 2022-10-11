@@ -47,6 +47,8 @@ cd /root/mesa && \
 meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc && \
 ninja -C build
 
+#meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc -Dbuildtype=debug && \
+
 #RUN sed -i '/cd \${WKLD_DIR}/d' /home/kpi/run.sh
 ENV LIBVA_DRIVERS_PATH=/root/mesa/build/src/gallium/targets/va
 ENV LIBVA_DRIVER_NAME=libgallium
@@ -86,11 +88,13 @@ RUN jq 'del(.subPipelines.theo_mid_pipeline.elements[] | select(.elementName == 
 cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
 
 
+COPY dockerfile_nvr_official_vaapi_vasharing_wlc /home/kpi/dockerfile
 
 COPY VER6-va-sharing /home/kpi/NEO
-RUN dpkg -i /home/kpi/NEO/*deb && cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
+RUN dpkg -i /home/kpi/NEO/*deb && \
+cp /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so /home/kpi/NEO/libigdrcl.so.old && \
+cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
 
-COPY dockerfile_nvr_official_vaapi_vasharing_wlc /home/kpi/dockerfile
 
 WORKDIR /home/kpi
 ENTRYPOINT ["/bin/bash", "./run.sh"]

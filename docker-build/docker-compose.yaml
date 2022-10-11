@@ -1,6 +1,8 @@
 version: "3.9"
 services:
         vaapi:
-                image: gar-registry.caas.intel.com/virtiot/vaapi-dxg
-                build: .
+                image: gar-registry.caas.intel.com/virtiot/vaapi-dxg:${TAG}
+                build:
+                    dockerfile: dockerfile_dlstreamer
+                    context: .
 
