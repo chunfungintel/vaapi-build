@@ -7,7 +7,7 @@ DOCKERFILE=${1}
 
 DOCKER_BUILDKIT=1 \
 docker build \
---cpuset-cpus 0-3 \
+--cpuset-cpus 0-$(nproc) \
 -f ${DOCKERFILE} \
 -t $IMAGE_NAME .
 docker push $IMAGE_NAME
