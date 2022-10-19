@@ -1,0 +1,49 @@
+FROM gar-registry.caas.intel.com/virtiot/vaapi-dxg:base
+#FROM openvino/ubuntu20_data_dev:2021.4.2
+#FROM dlstreamer/dlstreamer:latest
+
+USER root
+
+RUN apt update && apt install -y --no-install-recommends software-properties-common gnupg curl && \
+curl https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | apt-key add - && \
+echo "deb https://apt.repos.intel.com/openvino/2022 `. /etc/os-release && echo ${UBUNTU_CODENAME}` main" | tee /etc/apt/sources.list.d/intel-openvino-2022.list
+RUN apt update && apt install -y openvino-libraries-dev-2022.1.0 \
+openvino-samples-2022.1.0 libopenvino-python-2022.1.0 openvino-opencv && \
+/opt/intel/openvino_2022/install_dependencies/install_openvino_dependencies.sh -y
+
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+python3 -m pip install --upgrade pip && python3 -m pip install --ignore-installed  openvino-dev
+
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+apt install -y --no-install-recommends cmake build-essential libpython3-dev python-gi-dev
+#apt install -y --no-install-recommends intel-dlstreamer-gst cmake build-essential libpython3-dev python-gi-dev
+
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+mkdir -p /root/intel && \
+git clone https://github.com/dlstreamer/dlstreamer.git /root/intel/dlstreamer_gst && \
+cd /root/intel/dlstreamer_gst && \
+python3 -m pip install --upgrade pip && \
+python3 -m pip install -r requirements.txt
+
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+curl -sSL https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - && \
+apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+#apt update && apt install -y intel-opencl-icd
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+/opt/intel/openvino_2022/install_dependencies/install_NEO_OCL_driver.sh -y
+
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+curl -sSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | apt-key add - && \
+add-apt-repository "deb https://apt.repos.intel.com/oneapi all main" && \
+apt update && apt install -y intel-oneapi-compiler-dpcpp-cpp intel-level-zero-gpu level-zero-dev
+
+#source /opt/intel/dlstreamer/gstreamer/setupvars.sh && \
+RUN source /opt/intel/openvino_2022/setupvars.sh && \
+source /opt/intel/oneapi/compiler/latest/env/vars.sh && \
+cd /root/intel/dlstreamer_gst && \
+mkdir build && cd build && \
+cmake -DCMAKE_INSTALL_PREFIX=/opt/intel/dlstreamer -DCMAKE_BUILD_TYPE=Debug .. && \
+make -j$(nproc) && make install
+
+
+

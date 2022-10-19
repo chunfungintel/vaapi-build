@@ -1,0 +1,107 @@
+FROM ubuntu:20.04
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+
+ENV DEBIAN_FRONTEND noninteractive
+
+ENV FTP_PROXY=http://proxy-png.intel.com:911
+ENV ftp_proxy=http://proxy-png.intel.com:911
+
+ENV HTTP_PROXY=http://proxy-png.intel.com:911
+ENV http_proxy=http://proxy-png.intel.com:911
+
+ENV HTTPS_PROXY=http://proxy-png.intel.com:912
+ENV https_proxy=http://proxy-png.intel.com:912
+
+ENV SOCKS_PROXY=http://proxy-png.intel.com:1080
+
+
+RUN apt update && \
+apt install -y \
+cifs-utils autoconf libtool libdrm-dev yasm libghc-x11-dev \
+libxmuu-dev libxfixes-dev libxcb-glx0-dev libgegl-dev libegl1-mesa-dev \
+git xutils-dev libpciaccess-dev xserver-xorg-dev meson \
+cmake \
+libv4l-dev \
+libasound2-dev \
+libsdl2-dev \
+libx264-dev \
+libx265-dev \
+gcc g++ autoconf automake \
+bison flex openssl \
+x11-apps \
+strace \
+gtk-doc-tools libpackagekit-glib2-dev autopoint libgudev-1.0-dev \
+liboggz2-dev libvorbis-dev libtheora-dev \
+liborc-0.4-dev libjpeg-dev \
+libjson-glib-dev \
+python3-pip \
+libva-wayland2
+
+RUN pip3 install -U meson ninja
+
+ENV ROOT_INSTALL_DIR=/opt/media
+ENV SRC_DIR=/root/media_src
+
+RUN mkdir -p $ROOT_INSTALL_DIR && mkdir -p $SRC_DIR
+
+#ENV CPPFLAGS="-I$ROOT_INSTALL_DIR/include $CPPFLAGS"
+#ENV CFLAGS="-I$ROOT_INSTALL_DIR/include $CFLAGS"
+#ENV CXXFLAGS="-I$ROOT_INSTALL_DIR/include $CXXFLAGS"
+#ENV PATH=$ROOT_INSTALL_DIR/share/mfx/samples/:$ROOT_INSTALL_DIR/bin:$PATH
+ENV DISPLAY=:0
+
+ENV WIN_DRIVER_PATH=/usr/lib/wsl/drivers/iigd_dch.inf_amd64_50459fb35cfe9841
+ENV LIBVA_DRIVER_NAME=libgallium
+ENV LIBVA_DRIVERS_PATH=/home/ubuntu
+ENV PKG_CONFIG_PATH=/lib/pkgconfig/:$PKG_CONFIG_PATH
+#ENV PKG_CONFIG_PATH=$ROOT_INSTALL_DIR/lib/pkgconfig/:$PKG_CONFIG_PATH
+ENV LD_LIBRARY_PATH=$WIN_DRIVER_PATH:$LD_LIBRARY_PATH
+#ENV LD_LIBRARY_PATH=$WIN_DRIVER_PATH:$ROOT_INSTALL_DIR/lib:$ROOT_INSTALL_DIR/lib/mfx/:$ROOT_INSTALL_DIR/lib/xorg/:$LD_LIBRARY_PATH
+#ENV LDFLAGS="-L$ROOT_INSTALL_DIR/lib"
+
+RUN git clone https://gitlab.freedesktop.org/mesa/drm.git $SRC_DIR/drm && \
+cd $SRC_DIR/drm && \
+meson build && \
+ninja -C build && ninja -C build install
+
+RUN git clone https://gitlab.freedesktop.org/xorg/driver/xf86-video-intel.git $SRC_DIR/xf86-video-intel && \
+cd $SRC_DIR/xf86-video-intel && \
+./autogen.sh && \
+make -j8 && make install
+
+RUN git clone https://github.com/intel/gmmlib $SRC_DIR/gmmlib && \
+cd $SRC_DIR/gmmlib && \
+mkdir build && cd build && \
+cmake $SRC_DIR/gmmlib && \
+make -j8 && make install
+
+RUN git clone https://github.com/intel/libva $SRC_DIR/libva && \
+cd $SRC_DIR/libva && \
+./autogen.sh && \
+make -j8 && make install
+
+RUN git clone https://github.com/intel/libva-utils $SRC_DIR/libva-utils && \
+cd $SRC_DIR/libva-utils && \
+./autogen.sh --enable-tests && \
+make && make install
+
+
+
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git $SRC_DIR/gstreamer && \
+cd $SRC_DIR/gstreamer && \
+meson build && \
+ninja -C build && ninja -C build install
+
+
+
+
+
+
+
+
+
+
+
+
+

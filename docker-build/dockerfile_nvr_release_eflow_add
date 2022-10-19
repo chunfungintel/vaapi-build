@@ -41,7 +41,7 @@ libxshmfence-dev
 #RUN git clone https://gitlab.freedesktop.org/mesa/mesa.git /root/mesa && \
 COPY mesa /root/mesa
 RUN cd /root/mesa && \
-meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc -Dbuildtype=debug && \
+meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc && \
 ninja -C build
 #meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc -Dbuildtype=debug && \
 
@@ -94,6 +94,9 @@ RUN dpkg -i /home/kpi/NEO/*deb && \
 cp /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so /home/kpi/NEO/libigdrcl.so.old && \
 cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
 
+COPY gstreamer /root/gstreamer
+#RUN cd /root/gstreamer && \
+#meson build -Dprefix=/usr -Dlibdir=/usr/lib/x86_64-linux-gnu -Dbuildtype=debug && ninja -C build && ninja -C build install
 
 #RUN sed -i '/cd \${WKLD_DIR}/d' /home/kpi/run.sh
 ENV LIBVA_DRIVERS_PATH=/root/mesa/build/src/gallium/targets/va \
@@ -127,11 +130,17 @@ LD_LIBRARY_PATH=/usr/lib/wsl/lib:${LD_LIBRARY_PATH}
 #/home/kpi/workload/workload-config/pipelines/aibox-pipeline.json | tee /tmp/aibox-pipeline.json && \
 #cp /tmp/aibox-pipeline.json /home/kpi/workload/workload-config/pipelines/aibox-pipeline.json
 
+#RUN apt install -y \
+#libgstreamer1.0-0-dbg gstreamer1.0-libav-dbg gstreamer1.0-plugins-bad-dbg gstreamer1.0-plugins-base-dbg gstreamer1.0-plugins-good-dbg gstreamer1.0-plugins-ugly-dbg
 
 COPY run.sh /home/kpi/run.sh
 COPY pipeline-eflow.sh /home/kpi/pipeline-eflow.sh
 COPY aibox.js /home/kpi/workload/pipelineExecutor/aibox.js
 RUN sed -i 's!//console.log(pipeline.cmd)!console\.log\(pipeline\.cmd\)!g' /home/kpi/workload/pipelineExecutor/pipeline-executor.js
+
+
+COPY video/svet_clip_416p_4mbps_00_1.h264_enc /home/kpi/datasets/video/svet_clip_416p_4mbps_00_1.h264_enc
+COPY video/svet_clip_416p_4mbps_00_1.h264 /home/kpi/datasets/video/svet_clip_416p_4mbps_00_1.h264
 
 COPY dockerfile_nvr_release_eflow_add /home/kpi/dockerfile
 
