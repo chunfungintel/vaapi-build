@@ -5,7 +5,7 @@ RUN apt update
 COPY hello /root/hello
 COPY intel /root/intel
 COPY verbose_debug_layer_d3d12 /root/verbose_debug_layer_d3d12
-COPY VER6-va-sharing /root/NEO
+COPY VER6-va-sharing /root/VER6-va-sharing
 COPY video /root/video
 COPY mesa /root/mesa
 
