@@ -22,8 +22,10 @@ RUN wget https://github.com/aler9/rtsp-simple-server/releases/download/v0.19.3/r
 tar -xvf rtsp-simple-server_v0.19.3_linux_amd64.tar.gz
 
 
-COPY hello /home/dlstreamer/hello
-COPY intel /home/dlstreamer/intel
+#COPY hello /home/dlstreamer/hello
+COPY --from=gar-registry.caas.intel.com/virtiot/vaapi-dxg:material /root/hello /home/dlstreamer/hello
+#COPY intel /home/dlstreamer/intel
+COPY --from=gar-registry.caas.intel.com/virtiot/vaapi-dxg:material /root/intel /home/dlstreamer/intel
 
 #RUN source /opt/intel/openvino/setupvars.sh && \
 #python3 -m pip install --upgrade pip && \
@@ -38,8 +40,9 @@ apt update && apt install -y glslang-tools llvm ninja-build \
 libxcb-dri2-0-dev libxcb-dri3-dev libxcb-present-dev libxcb-shm0-dev \
 libxshmfence-dev
 
-#RUN git clone https://gitlab.freedesktop.org/mesa/mesa.git /root/mesa && \
-COPY mesa /root/mesa
+#RUN git clone https://gitlab.freedesktop.org/mesa/mesa.git /root/mesa
+#COPY mesa /root/mesa
+COPY --from=gar-registry.caas.intel.com/virtiot/vaapi-dxg:material /root/mesa /root/mesa
 RUN cd /root/mesa && \
 meson build -Dgallium-drivers=d3d12,swrast -Dplatforms=x11 -Dgallium-va=enabled -Dglx=xlib -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc && \
 ninja -C build
@@ -87,14 +90,16 @@ cd /root/gst-shark && \
 ./autogen.sh --prefix /usr/ --libdir /usr/lib/x86_64-linux-gnu && \
 make && make install
 
-COPY verbose_debug_layer_d3d12 /root/verbose_debug_layer_d3d12
+#COPY verbose_debug_layer_d3d12 /root/verbose_debug_layer_d3d12
+COPY --from=gar-registry.caas.intel.com/virtiot/vaapi-dxg:material /root/verbose_debug_layer_d3d12 /root/verbose_debug_layer_d3d12
 
-COPY VER6-va-sharing /home/kpi/NEO
+#COPY VER6-va-sharing /home/kpi/NEO
+COPY --from=gar-registry.caas.intel.com/virtiot/vaapi-dxg:material /root/VER6-va-sharing /home/kpi/NEO
 RUN dpkg -i /home/kpi/NEO/*deb && \
 cp /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so /home/kpi/NEO/libigdrcl.so.old && \
 cp /home/kpi/NEO/libigdrcl.so /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
 
-COPY gstreamer /root/gstreamer
+#COPY gstreamer /root/gstreamer
 #RUN cd /root/gstreamer && \
 #meson build -Dprefix=/usr -Dlibdir=/usr/lib/x86_64-linux-gnu -Dbuildtype=debug && ninja -C build && ninja -C build install
 
@@ -139,8 +144,9 @@ COPY aibox.js /home/kpi/workload/pipelineExecutor/aibox.js
 RUN sed -i 's!//console.log(pipeline.cmd)!console\.log\(pipeline\.cmd\)!g' /home/kpi/workload/pipelineExecutor/pipeline-executor.js
 
 
-COPY video/svet_clip_416p_4mbps_00_1.h264_enc /home/kpi/datasets/video/svet_clip_416p_4mbps_00_1.h264_enc
-COPY video/svet_clip_416p_4mbps_00_1.h264 /home/kpi/datasets/video/svet_clip_416p_4mbps_00_1.h264
+#COPY video/svet_clip_416p_4mbps_00_1.h264_enc /home/kpi/datasets/video/svet_clip_416p_4mbps_00_1.h264_enc
+#COPY video/svet_clip_416p_4mbps_00_1.h264 /home/kpi/datasets/video/svet_clip_416p_4mbps_00_1.h264
+COPY --from=gar-registry.caas.intel.com/virtiot/vaapi-dxg:material /root/video /home/kpi/datasets/video
 
 COPY dockerfile_nvr_release_eflow_add /home/kpi/dockerfile
 
