@@ -138,9 +138,9 @@ LD_LIBRARY_PATH=/usr/lib/wsl/lib:${LD_LIBRARY_PATH}
 #RUN apt install -y \
 #libgstreamer1.0-0-dbg gstreamer1.0-libav-dbg gstreamer1.0-plugins-bad-dbg gstreamer1.0-plugins-base-dbg gstreamer1.0-plugins-good-dbg gstreamer1.0-plugins-ugly-dbg
 
-COPY run.sh /home/kpi/run.sh
-COPY pipeline-eflow.sh /home/kpi/pipeline-eflow.sh
-COPY aibox.js /home/kpi/workload/pipelineExecutor/aibox.js
+COPY scripts/run.sh /home/kpi/run.sh
+COPY scripts/pipeline-eflow.sh /home/kpi/pipeline-eflow.sh
+COPY scripts/aibox.js /home/kpi/workload/pipelineExecutor/aibox.js
 RUN sed -i 's!//console.log(pipeline.cmd)!console\.log\(pipeline\.cmd\)!g' /home/kpi/workload/pipelineExecutor/pipeline-executor.js
 
 
