@@ -1,0 +1,411 @@
+{
+    "name": "4k-videowall-vacomp-va1-pipeline",
+    "kpi": [
+        {
+            "type": "bps",
+            "name": "decrypt fps",
+            "keyword": "bps_decrypt"
+        },
+        {
+            "type": "bps",
+            "name": "decode fps",
+            "keyword": "bps_decode"
+        },
+        {
+            "type": "bps",
+            "name": "render fps",
+            "keyword": "bps_render"
+        },
+        {
+            "type": "bps",
+            "name": "encode fps",
+            "keyword": "bps_encode"
+        },
+        {
+            "type": "bps",
+            "name": "encrypt fps",
+            "keyword": "bps_encrypt"
+        },
+        {
+            "type": "ips",
+            "name": "yolo-v3-tf ips",
+            "model_name": "yolo_v3",
+            "stream_count": "1"
+        },
+        {
+            "type": "ips",
+            "name": "resnet-50-tf ips",
+            "model_name": "resnet-50-tf",
+            "stream_count": "1"
+        }
+    ],
+    "values": {
+        "G_zoomVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+        "G_tilesVideoStream": "{{env.datasetsDir}}/video/svet_clip_720p_1mbps_00_1.h265_enc",
+        "G_VideoCodec": "h265",
+        "G_Numof1080pStream": "0",
+        "G_NumofDisplayStream": "25",
+        "G_NumofDiscardStream": "0",
+        "G_NumofEncodeStream": "2",
+        "G_NumofVaStream": "2",
+        "G_InferenceDevice":"GPU",
+        "G_SinkInfo": "sink_0::xpos=192 sink_0::ypos=108 sink_1::xpos=2304 sink_1::ypos=0 sink_2::xpos=3072 sink_2::ypos=0 sink_3::xpos=2304 sink_3::ypos=432 sink_4::xpos=3072 sink_4::ypos=432 sink_5::xpos=2304 sink_5::ypos=864 sink_6::xpos=3072 sink_6::ypos=864 sink_7::xpos=0 sink_7::ypos=1296 sink_8::xpos=768 sink_8::ypos=1296 sink_9::xpos=1536 sink_9::ypos=1296 sink_10::xpos=2304 sink_10::ypos=1296 sink_11::xpos=3072 sink_11::ypos=1296 sink_12::xpos=0 sink_12::ypos=1728 sink_13::xpos=768 sink_13::ypos=1728 sink_14::xpos=1536 sink_14::ypos=1728 sink_15::xpos=2304 sink_15::ypos=1728 sink_16::xpos=3072 sink_16::ypos=1728 sink_0::width=1920 sink_0::height=1080 sink_1::width=768 sink_1::height=432 sink_2::width=768 sink_2::height=432 sink_3::width=768 sink_3::height=432 sink_4::width=768 sink_4::height=432 sink_5::width=768 sink_5::height=432 sink_6::width=768 sink_6::height=432 sink_7::width=768 sink_7::height=432 sink_8::width=768 sink_8::height=432 sink_9::width=768 sink_9::height=432 sink_10::width=768 sink_10::height=432 sink_11::width=768 sink_11::height=432 sink_12::width=768 sink_12::height=432 sink_13::width=768 sink_13::height=432 sink_14::width=768 sink_14::height=432 sink_15::width=768 sink_15::height=432 sink_16::width=768 sink_16::height=432",      
+        "G_MonitorName": "0",
+        "T_VaCompScale": "default",
+        "T_EncodeType":"lpenc"
+    },
+    "elements": [
+        {
+            "type": "subPipeline",
+            "elementName": "1080pStream",
+            "input": null,
+            "duplicate": "{{values.G_Numof1080pStream}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "displayStreams",
+            "input": null,
+            "duplicate": "{{values.G_NumofDisplayStream}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "discardStreams",
+            "input": null,
+            "duplicate": "{{values.G_NumofDiscardStream}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "encodeStream",
+            "input": null,
+            "duplicate": "{{values.G_NumofEncodeStream}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "Va1Streams",
+            "input": null,
+            "duplicate": "{{values.G_NumofVaStream}}"
+        },
+        {
+            "name": "comp",
+            "elementName": "vacompositor",
+            "parameters": "scale-method={{values.T_VaCompScale}} {{values.G_SinkInfo}}",
+            "input": null
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "4kdisplayStreams",
+            "duplicate": "1"
+        }
+    ],
+    "subPipelines": {
+        "1080pStream": {
+            "elements": [
+                {
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_zoomVideoStream}}",
+                    "input": null
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=5"
+                },
+                {
+                    "elementName": "{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "name": "1080p_bps_decrypt",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "va{{values.G_VideoCodec}}dec"
+                },
+                {
+                    "name": "1080p_bps_decode",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=2",
+                    "output": "comp"
+                }
+            ]
+        },
+        "displayStreams": {
+            "elements": [
+                {
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_tilesVideoStream}}",
+                    "input": null
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=2"
+                },
+                {
+                    "elementName": "{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "name": "display_bps_decrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "va{{values.G_VideoCodec}}dec"
+                },
+                {
+                    "name": "display_bps_decode_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=2",
+                    "output": "comp"
+                }
+            ]
+        },
+        "discardStreams": {
+            "elements": [
+                {
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_tilesVideoStream}}",
+                    "input": null
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=5"
+                },
+                {
+                    "elementName": "{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "name": "discard_bps_decrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "va{{values.G_VideoCodec}}dec"
+                },
+                {
+                    "name": "discard_bps_decode_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "fakevideosink",
+                    "parameters": "sync=true"
+                }
+            ]
+        },
+        "encodeStream": {
+            "elements": [
+                {
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_tilesVideoStream}}",
+                    "input": null
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=2"
+                },
+                {
+                    "elementName": "{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "name": "encode_bps_decrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "va{{values.G_VideoCodec}}dec"
+                },
+                {
+                    "name": "encode_bps_decode_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "name": "720p_enc_{{auto}}",
+                    "elementName": "tee"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=2"
+                },
+                {
+                    "elementName": "msdk{{values.G_VideoCodec}}enc",
+                    "parameters": "target-usage=7 tune=low-power"
+                },
+                {
+                    "name": "encode_bps_encode_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=enc cipher=aes-256-cbc"
+                },
+                {
+                    "name": "encode_bps_encrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "fakesink"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=2",
+                    "input": "720p_enc_{{auto}}",
+                    "output": "comp"
+                }
+            ]
+        },
+        "Va1Streams": {
+            "elements": [
+                {
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_tilesVideoStream}}",
+                    "input": null
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=5"
+                },
+                {
+                    "elementName": "{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "name": "va1_bps_decrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "va{{values.G_VideoCodec}}dec"
+                },
+                {
+                    "elementName":"gvadetect",
+                    "parameters":"model=/home/kpi/datasets/model/yolo-v3-tf.xml device={{values.G_InferenceDevice}} nireq=4 model-proc=/home/kpi/datasets/model/yolo-v3-tf.json batch-size=1 inference-interval=5 no-block=false"
+                },
+                {
+                    "elementName":"queue"
+                },
+                {
+                    "elementName":"gvatrack",
+                    "parameters":"device=CPU tracking-type=short-term-imageless config=max_num_objects=20"
+                },
+                {
+                    "elementName":"queue"
+                },
+                {
+                    "elementName":"gvametaconvert",
+                    "parameters":"format=json"
+                },
+                {
+                    "elementName":"gvametapublish",
+                    "parameters":"method=file file-path={{env.outputDir}}/videoAnalytics/va1.dmeta"
+                },
+                {
+                    "elementName":"queue"
+                },
+                {
+                    "elementName":"gvaclassify",
+                    "parameters":"model=/home/kpi/datasets/model/resnet-50-tf.xml device={{values.G_InferenceDevice}} nireq=4 model-proc=/home/kpi/datasets/model/resnet-50-tf.json batch-size=1 inference-region=0 inference-interval=5 no-block=false"
+                },
+                {
+                    "elementName":"gvametaconvert",
+                    "parameters":"format=json"
+                },
+                {
+                    "elementName":"gvametapublish",
+                    "parameters":"method=file file-path={{env.outputDir}}/videoAnalytics/va1.cmeta"
+                },
+                {
+                    "elementName":"queue"
+                },
+                {
+                    "elementName":"gvawatermark"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "name": "720p_enc_va1_{{auto}}",
+                    "elementName": "tee"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "msdk{{values.G_VideoCodec}}enc",
+                    "parameters": "target-usage=7 tune=low-power"
+                },
+                {
+                    "name": "va1_bps_encode_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=enc cipher=aes-256-cbc"
+                },
+                {
+                    "name": "va1_bps_encrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "fakesink"
+                },
+                {
+                    "elementName":"queue",
+                    "parameters": "max-size-buffers=3",
+                    "input": "720p_enc_va1_{{auto}}",
+                    "output": "comp"
+                }
+            ]
+        },
+        "4kdisplayStreams":{
+            "elements": [
+                {
+                    "elementName": "video/x-raw(memory:DMABuf),format=NV12"
+                },
+                {
+                    "elementName": "queue",
+                    "parameters": "max-size-buffers=3"
+                },
+                {
+                    "name": "bps_render_{{values.G_MonitorName}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "kmssink",
+                    "parameters": "force-modesetting=true sync=true"
+                }
+            ]
+        }
+    }
+}

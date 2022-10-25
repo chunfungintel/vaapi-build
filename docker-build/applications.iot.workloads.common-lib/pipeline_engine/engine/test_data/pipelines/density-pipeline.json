@@ -1,0 +1,155 @@
+{
+    "name": "density-pipeline",
+    "kpi": [
+        {
+            "type": "theo",
+            "name": "density theo",
+            "keyword": "density_theo"
+        }
+    ],
+    "values": {
+        "G_VideoFile": "{{env.datasetsDir}}/video/svet_clip_1080p_4mbps_00_1.h264_enc",
+        "G_PythonFile": "/home/kpi/libs/KPI_Err_Monitor.py",
+        "G_num_density_low": "1",
+        "G_num_density_mid": "0",
+        "G_num_density_high": "0",
+        "G_num_densityTheo": "1",
+        "G_num_densityMeasured": "0",
+        "G_num_classifier": "1",
+        "G_InferenceDevice": "GPU",
+        "G_num_theo_pipelines": "1"
+    },
+    "elements": [
+        {
+            "elementName": "multifilesrc",
+            "parameters": "loop=true location={{values.G_VideoFile}}",
+            "input": null
+        },
+        {
+            "elementName": "crypto",
+            "parameters": "mode=dec cipher=aes-256-cbc"
+        },
+        {
+            "elementName": "queue"
+        },
+        {
+            "elementName": "h264parse"
+        },
+        {
+            "elementName": "vah264dec"
+        },
+        {
+            "elementName": "video/x-raw,format=NV12"
+        },
+        {
+            "elementName": "queue"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "density_low_pipeline",
+            "duplicate": "{{values.G_num_density_low}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "density_mid_pipeline",
+            "duplicate": "{{values.G_num_density_mid}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "density_high_pipeline",
+            "duplicate": "{{values.G_num_density_high}}"
+        },
+        {
+            "elementName": "queue"
+        },
+        {
+            "elementName": "gvatrack",
+            "parameters": "device=CPU tracking-type=zero-term-imageless config=max_num_objects=20"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "classifier_Pipeline",
+            "duplicate": "{{values.G_num_classifier}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "density_theo_pipeline",
+            "duplicate": "{{values.G_num_densityTheo}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "density_measured_pipeline",
+            "duplicate": "{{values.G_num_densityMeasured}}"
+        }
+    ],
+    "subPipelines": {
+        "density_low_pipeline": {
+            "elements": [
+                {
+                    "elementName": "gvadetect",
+                    "parameters": "model={{env.datasetsDir}}/model/mobilenet-ssd.xml device={{values.G_InferenceDevice}} model-proc={{env.datasetsDir}}/model/mobilenet-ssd.json inference-interval=3 nireq=4"
+                }
+            ]
+        },
+        "density_mid_pipeline": {
+            "elements": [
+                {
+                    "elementName": "gvadetect",
+                    "parameters": "model={{env.datasetsDir}}/model/yolo-v3-tiny-tf.xml device={{values.G_InferenceDevice}} model-proc={{env.datasetsDir}}/model/yolo-v3-tiny-tf.json inference-interval=3 nireq=4"
+                }
+            ]
+        },
+        "density_high_pipeline": {
+            "elements": [
+                {
+                    "elementName": "gvadetect",
+                    "parameters": "model={{env.datasetsDir}}/model/yolo-v3-tf.xml device={{values.G_InferenceDevice}} model-proc={{env.datasetsDir}}/model/yolo-v3-tf.json inference-interval=3 nireq=4"
+                }
+            ]
+        },
+        "classifier_Pipeline": {
+            "elements": [
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "gvaclassify",
+                    "parameters": "model={{env.datasetsDir}}/model/resnet-50-tf.xml device={{values.G_InferenceDevice}} model-proc={{env.datasetsDir}}/model/resnet-50-tf.json reclassify-interval=30"
+                },
+                {
+                    "elementName": "convert",
+                    "parameters": "format=json"
+                },
+                {
+                    "elementName": "gvametapublish",
+                    "parameters": "method=file file-path={{env.outputDir}}/videoAnalytics/density-{{auto}}.cmeta"
+                }
+            ]
+        },
+        "density_theo_pipeline": {
+            "elements": [
+                {
+                    "name": "density_theo",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "fakevideosink",
+                    "parameters": "sync=false"
+                }
+            ]
+        },
+        "density_measured_pipeline": {
+            "elements": [
+                {
+                    "elementName": "gvapython",
+                    "parameters": "module={{values.G_PythonFile}} class=EvalKPI function=KPI_ErrCheck kwarg={\\\"AppName\\\":\\\"{{env.mqttTopic}}\\\"}"
+                },
+                {
+                    "elementName": "fakevideosink",
+                    "parameters": "sync=true"
+                }
+            ]
+        }
+    }
+}

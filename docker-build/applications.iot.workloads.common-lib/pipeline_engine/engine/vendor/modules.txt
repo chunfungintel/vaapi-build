@@ -1,0 +1,12 @@
+# github.com/google/uuid v1.3.0
+## explicit
+github.com/google/uuid
+# github.com/goombaio/dag v0.0.0-20181006234417-a8874b1f72ff
+## explicit
+github.com/goombaio/dag
+# github.com/goombaio/orderedmap v0.0.0-20180924084748-ba921b7e2419
+## explicit
+github.com/goombaio/orderedmap
+# github.com/goombaio/orderedset v0.0.0-20180924084730-d1b9fdd81eca
+## explicit
+github.com/goombaio/orderedset

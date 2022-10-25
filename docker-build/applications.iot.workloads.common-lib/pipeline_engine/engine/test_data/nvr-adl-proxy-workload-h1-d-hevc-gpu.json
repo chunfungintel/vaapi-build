@@ -1,0 +1,93 @@
+{
+	"config": {
+		"name": "nvr-adl-proxy-workload-h1-d-hevc-gpu.json"
+	},
+	"pipelines": [
+		{
+			"type": "file",
+			"name": "primary-encrypt-pipeline.json",
+			"config" : {
+				"G_PriVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+				"G_VideoCodec": "h265",
+				"G_NumofStreams":"150"
+			}
+		},
+		{
+			"type": "file",
+			"name": "primary-transcode-pipeline.json",
+			"config" : {
+				"G_PriVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+				"G_VideoCodec": "265",
+				"T_NumofCPUTranscode": "0",
+				"T_NumofGPUTranscode": "8",
+				"T_GpuVppScale": "fast",
+				"T_GpuEncodeType": "lpenc"
+			}
+		},
+		{
+			"type": "file",
+			"name": "4k-videowall-vacomp-default-pipeline.json",
+			"config" : {
+				"G_zoomVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+				"G_tilesVideoStream": "{{env.datasetsDir}}/video/svet_clip_720p_1mbps_00_1.h265_enc",
+				"G_VideoCodec": "h265",
+				"G_Numof1080pStream": "0",
+				"G_NumofDisplayStream": "25",
+				"G_NumofDiscardStream": "0",
+				"G_SinkInfo": "sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=768 sink_1::ypos=0 sink_2::xpos=1536 sink_2::ypos=0 sink_3::xpos=2304 sink_3::ypos=0 sink_4::xpos=3072 sink_4::ypos=0 sink_5::xpos=0 sink_5::ypos=432 sink_6::xpos=768 sink_6::ypos=432 sink_7::xpos=1536 sink_7::ypos=432 sink_8::xpos=2304 sink_8::ypos=432 sink_9::xpos=3072 sink_9::ypos=432 sink_10::xpos=0 sink_10::ypos=864 sink_11::xpos=768 sink_11::ypos=864 sink_12::xpos=1536 sink_12::ypos=864 sink_13::xpos=2304 sink_13::ypos=864 sink_14::xpos=3072 sink_14::ypos=864 sink_15::xpos=0 sink_15::ypos=1296 sink_16::xpos=768 sink_16::ypos=1296 sink_17::xpos=1536 sink_17::ypos=1296 sink_18::xpos=2304 sink_18::ypos=1296 sink_19::xpos=3072 sink_19::ypos=1296 sink_20::xpos=0 sink_20::ypos=1728 sink_21::xpos=768 sink_21::ypos=1728 sink_22::xpos=1536 sink_22::ypos=1728 sink_23::xpos=2304 sink_23::ypos=1728 sink_24::xpos=3072 sink_24::ypos=1728 sink_0::width=768 sink_0::height=432 sink_1::width=768 sink_1::height=432 sink_2::width=768 sink_2::height=432 sink_3::width=768 sink_3::height=432 sink_4::width=768 sink_4::height=432 sink_5::width=768 sink_5::height=432 sink_6::width=768 sink_6::height=432 sink_7::width=768 sink_7::height=432 sink_8::width=768 sink_8::height=432 sink_9::width=768 sink_9::height=432 sink_10::width=768 sink_10::height=432 sink_11::width=768 sink_11::height=432 sink_12::width=768 sink_12::height=432 sink_13::width=768 sink_13::height=432 sink_14::width=768 sink_14::height=432 sink_15::width=768 sink_15::height=432 sink_16::width=768 sink_16::height=432 sink_17::width=768 sink_17::height=432 sink_18::width=768 sink_18::height=432 sink_19::width=768 sink_19::height=432 sink_20::width=768 sink_20::height=432 sink_21::width=768 sink_21::height=432 sink_22::width=768 sink_22::height=432 sink_23::width=768 sink_23::height=432 sink_24::width=768 sink_24::height=432",
+				"G_MonitorName": "0",
+				"T_VaCompScale": "hq"
+			}
+		},
+		{
+			"type": "file",
+			"name": "4k-videowall-vacomp-default-pipeline.json",
+			"config" : {
+				"G_zoomVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+				"G_tilesVideoStream": "{{env.datasetsDir}}/video/svet_clip_720p_1mbps_00_1.h265_enc",
+				"G_VideoCodec": "h265",
+				"G_Numof1080pStream": "0",
+				"G_NumofDisplayStream": "25",
+				"G_NumofDiscardStream": "0",
+				"G_SinkInfo": "sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=768 sink_1::ypos=0 sink_2::xpos=1536 sink_2::ypos=0 sink_3::xpos=2304 sink_3::ypos=0 sink_4::xpos=3072 sink_4::ypos=0 sink_5::xpos=0 sink_5::ypos=432 sink_6::xpos=768 sink_6::ypos=432 sink_7::xpos=1536 sink_7::ypos=432 sink_8::xpos=2304 sink_8::ypos=432 sink_9::xpos=3072 sink_9::ypos=432 sink_10::xpos=0 sink_10::ypos=864 sink_11::xpos=768 sink_11::ypos=864 sink_12::xpos=1536 sink_12::ypos=864 sink_13::xpos=2304 sink_13::ypos=864 sink_14::xpos=3072 sink_14::ypos=864 sink_15::xpos=0 sink_15::ypos=1296 sink_16::xpos=768 sink_16::ypos=1296 sink_17::xpos=1536 sink_17::ypos=1296 sink_18::xpos=2304 sink_18::ypos=1296 sink_19::xpos=3072 sink_19::ypos=1296 sink_20::xpos=0 sink_20::ypos=1728 sink_21::xpos=768 sink_21::ypos=1728 sink_22::xpos=1536 sink_22::ypos=1728 sink_23::xpos=2304 sink_23::ypos=1728 sink_24::xpos=3072 sink_24::ypos=1728 sink_0::width=768 sink_0::height=432 sink_1::width=768 sink_1::height=432 sink_2::width=768 sink_2::height=432 sink_3::width=768 sink_3::height=432 sink_4::width=768 sink_4::height=432 sink_5::width=768 sink_5::height=432 sink_6::width=768 sink_6::height=432 sink_7::width=768 sink_7::height=432 sink_8::width=768 sink_8::height=432 sink_9::width=768 sink_9::height=432 sink_10::width=768 sink_10::height=432 sink_11::width=768 sink_11::height=432 sink_12::width=768 sink_12::height=432 sink_13::width=768 sink_13::height=432 sink_14::width=768 sink_14::height=432 sink_15::width=768 sink_15::height=432 sink_16::width=768 sink_16::height=432 sink_17::width=768 sink_17::height=432 sink_18::width=768 sink_18::height=432 sink_19::width=768 sink_19::height=432 sink_20::width=768 sink_20::height=432 sink_21::width=768 sink_21::height=432 sink_22::width=768 sink_22::height=432 sink_23::width=768 sink_23::height=432 sink_24::width=768 sink_24::height=432",
+				"G_MonitorName": "1",
+				"T_VaCompScale": "default"
+			}
+		},
+		{
+			"type": "file",
+			"name": "4k-videowall-vacomp-4kenc-pipeline.json",
+			"config" : {
+				"G_zoomVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+				"G_tilesVideoStream": "{{env.datasetsDir}}/video/svet_clip_720p_1mbps_00_1.h265_enc",
+				"G_VideoCodec": "h265",
+				"G_Numof1080pStream": "0",
+				"G_NumofDisplayStream": "25",
+				"G_NumofDiscardStream": "0",
+				"G_SinkInfo": "sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=768 sink_1::ypos=0 sink_2::xpos=1536 sink_2::ypos=0 sink_3::xpos=2304 sink_3::ypos=0 sink_4::xpos=3072 sink_4::ypos=0 sink_5::xpos=0 sink_5::ypos=432 sink_6::xpos=768 sink_6::ypos=432 sink_7::xpos=1536 sink_7::ypos=432 sink_8::xpos=2304 sink_8::ypos=432 sink_9::xpos=3072 sink_9::ypos=432 sink_10::xpos=0 sink_10::ypos=864 sink_11::xpos=768 sink_11::ypos=864 sink_12::xpos=1536 sink_12::ypos=864 sink_13::xpos=2304 sink_13::ypos=864 sink_14::xpos=3072 sink_14::ypos=864 sink_15::xpos=0 sink_15::ypos=1296 sink_16::xpos=768 sink_16::ypos=1296 sink_17::xpos=1536 sink_17::ypos=1296 sink_18::xpos=2304 sink_18::ypos=1296 sink_19::xpos=3072 sink_19::ypos=1296 sink_20::xpos=0 sink_20::ypos=1728 sink_21::xpos=768 sink_21::ypos=1728 sink_22::xpos=1536 sink_22::ypos=1728 sink_23::xpos=2304 sink_23::ypos=1728 sink_24::xpos=3072 sink_24::ypos=1728 sink_0::width=768 sink_0::height=432 sink_1::width=768 sink_1::height=432 sink_2::width=768 sink_2::height=432 sink_3::width=768 sink_3::height=432 sink_4::width=768 sink_4::height=432 sink_5::width=768 sink_5::height=432 sink_6::width=768 sink_6::height=432 sink_7::width=768 sink_7::height=432 sink_8::width=768 sink_8::height=432 sink_9::width=768 sink_9::height=432 sink_10::width=768 sink_10::height=432 sink_11::width=768 sink_11::height=432 sink_12::width=768 sink_12::height=432 sink_13::width=768 sink_13::height=432 sink_14::width=768 sink_14::height=432 sink_15::width=768 sink_15::height=432 sink_16::width=768 sink_16::height=432 sink_17::width=768 sink_17::height=432 sink_18::width=768 sink_18::height=432 sink_19::width=768 sink_19::height=432 sink_20::width=768 sink_20::height=432 sink_21::width=768 sink_21::height=432 sink_22::width=768 sink_22::height=432 sink_23::width=768 sink_23::height=432 sink_24::width=768 sink_24::height=432",
+				"G_MonitorName": "2",
+				"T_VaCompScale": "default",
+				"T_EncodeType": "lpenc"
+			}
+		},
+		{
+			"type": "file",
+			"name": "4k-videowall-vacomp-va1-pipeline.json",
+			"config" : {
+				"G_zoomVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+				"G_tilesVideoStream": "{{env.datasetsDir}}/video/svet_clip_720p_1mbps_00_1.h265_enc",
+				"G_VideoCodec": "h265",
+				"G_Numof1080pStream": "0",
+				"G_NumofDisplayStream": "21",
+				"G_NumofDiscardStream": "0",
+				"G_SinkInfo": "sink_0::xpos=0 sink_0::ypos=0 sink_1::xpos=768 sink_1::ypos=0 sink_2::xpos=1536 sink_2::ypos=0 sink_3::xpos=2304 sink_3::ypos=0 sink_4::xpos=3072 sink_4::ypos=0 sink_5::xpos=0 sink_5::ypos=432 sink_6::xpos=768 sink_6::ypos=432 sink_7::xpos=1536 sink_7::ypos=432 sink_8::xpos=2304 sink_8::ypos=432 sink_9::xpos=3072 sink_9::ypos=432 sink_10::xpos=0 sink_10::ypos=864 sink_11::xpos=768 sink_11::ypos=864 sink_12::xpos=1536 sink_12::ypos=864 sink_13::xpos=2304 sink_13::ypos=864 sink_14::xpos=3072 sink_14::ypos=864 sink_15::xpos=0 sink_15::ypos=1296 sink_16::xpos=768 sink_16::ypos=1296 sink_17::xpos=1536 sink_17::ypos=1296 sink_18::xpos=2304 sink_18::ypos=1296 sink_19::xpos=3072 sink_19::ypos=1296 sink_20::xpos=0 sink_20::ypos=1728 sink_21::xpos=768 sink_21::ypos=1728 sink_22::xpos=1536 sink_22::ypos=1728 sink_23::xpos=2304 sink_23::ypos=1728 sink_24::xpos=3072 sink_24::ypos=1728 sink_0::width=768 sink_0::height=432 sink_1::width=768 sink_1::height=432 sink_2::width=768 sink_2::height=432 sink_3::width=768 sink_3::height=432 sink_4::width=768 sink_4::height=432 sink_5::width=768 sink_5::height=432 sink_6::width=768 sink_6::height=432 sink_7::width=768 sink_7::height=432 sink_8::width=768 sink_8::height=432 sink_9::width=768 sink_9::height=432 sink_10::width=768 sink_10::height=432 sink_11::width=768 sink_11::height=432 sink_12::width=768 sink_12::height=432 sink_13::width=768 sink_13::height=432 sink_14::width=768 sink_14::height=432 sink_15::width=768 sink_15::height=432 sink_16::width=768 sink_16::height=432 sink_17::width=768 sink_17::height=432 sink_18::width=768 sink_18::height=432 sink_19::width=768 sink_19::height=432 sink_20::width=768 sink_20::height=432 sink_21::width=768 sink_21::height=432 sink_22::width=768 sink_22::height=432 sink_23::width=768 sink_23::height=432 sink_24::width=768 sink_24::height=432",
+				"G_MonitorName": "3",
+				"G_NumofEncodeStream": "3",
+				"G_NumofVaStream": "1",
+				"G_InferenceDevice": "GPU",
+				"T_VaCompScale": "default",
+				"T_EncodeType": "lpenc"
+			}
+		}
+	]
+}

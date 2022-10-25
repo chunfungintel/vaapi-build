@@ -1,0 +1,202 @@
+{
+    "name": "primary-transcode-pipeline",
+    "kpi": [
+        {
+            "type": "bps",
+            "name": "decrypt fps",
+            "keyword": "bps_decrypt"
+        },
+        {
+            "type": "bps",
+            "name": "decode fps",
+            "keyword": "bps_decode"
+        },
+        {
+            "type": "bps",
+            "name": "encode fps",
+            "keyword": "bps_encode"
+        },
+        {
+            "type": "bps",
+            "name": "encrypt fps",
+            "keyword": "bps_encrypt"
+        }
+    ],
+    "values": {
+        "G_PriVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+        "G_VideoCodec": "265",
+        "T_NumofCPUTranscode": "0",
+        "T_NumofGPUTranscode": "8",        
+        "T_GpuVppScale": "default",
+        "T_GpuEncodeType": "lpenc"
+    },
+    "elements": [
+        {
+            "type": "subPipeline",
+            "elementName": "GpuTranscodePipeline",
+            "input": null,
+            "duplicate": "{{values.T_NumofGPUTranscode}}"
+        },
+        {
+            "type": "subPipeline",
+            "elementName": "CpuTranscodePipeline",
+            "input": null,
+            "duplicate": "{{values.T_NumofCPUTranscode}}"
+        }
+    ],
+    "subPipelines": {
+        "GpuTranscodePipeline": {
+            "elements": [
+                {
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_PriVideoStream}}",
+                    "input": null
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc"
+                },
+                {
+                    "type": "element",
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "h{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "name": "bps_decrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "identity",
+                    "parameters": "sync=true"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "vah{{values.G_VideoCodec}}dec"
+                },
+                {
+                    "name": "bps_decode_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "vapostproc",
+                    "parameters": "scale-method={{values.T_GpuVppScale}}"
+                },
+                {
+                    "elementName": "video/x-raw(memory:DMABuf),format=NV12,height=720,width=1280"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "msdkh{{values.G_VideoCodec}}enc",
+                    "parameters": "target-usage=7 tune=low-power"
+                },
+                {
+                    "name": "bps_encode_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=enc cipher=aes-256-cbc"
+                },
+                {
+                    "name": "bps_encrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "fakesink"
+                }
+            ]
+        },
+        "CpuTranscodePipeline": {
+            "elements": [
+                {
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_PriVideoStream}}",
+                    "input": null
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc"
+                },
+                {
+                    "type": "element",
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "h{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "name": "bps_decrypt_cpu_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "identity",
+                    "parameters": "sync=true"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "avdec_h{{values.G_VideoCodec}}"
+                },
+                {
+                    "name": "bps_decode_cpu_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "videoscale"
+                },
+                {
+                    "elementName": "video/x-raw,height=720,width=1280"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "x{{values.G_VideoCodec}}enc",
+                    "parameters": "speed-preset=1 bitrate=1024"
+                },
+                {
+                    "name": "bps_encode_cpu_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=enc cipher=aes-256-cbc"
+                },
+                {
+                    "name": "bps_encrypt_cpu_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "fakesink"
+                }
+            ]
+        }
+    }
+}

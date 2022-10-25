@@ -1,0 +1,81 @@
+{
+    "name": "primary-encrypt-pipeline",
+    "kpi": [
+        {
+            "type": "bps",
+            "name": "decrypt fps",
+            "keyword": "bps_decrypt"
+        },
+        {
+            "type": "bps",
+            "name": "encrypt fps",
+            "keyword": "bps_encrypt"
+        }
+    ],
+    "values": {
+        "G_PriVideoStream": "{{env.datasetsDir}}/video/svet_clip_1080p_2mbps_00_1.h265_enc",
+        "G_VideoCodec": "h265",
+        "G_NumofStreams": "150"
+    },
+    "elements": [
+        {
+            "type": "subPipeline",
+            "elementName": "encryptPipeline",
+            "input": null,
+            "duplicate": "{{values.G_NumofStreams}}"
+        }
+    ],
+    "subPipelines": {
+        "encryptPipeline": {
+            "elements": [
+                {
+                    "name": "fileSource_{{auto}}",
+                    "type": "element",
+                    "elementName": "multifilesrc",
+                    "parameters": "loop=true location={{values.G_PriVideoStream}}",
+                    "input": null,
+                    "output": "decrypt_{{auto}}"
+                },
+                {
+                    "name": "decrypt_{{auto}}",
+                    "type": "element",
+                    "elementName": "crypto",
+                    "parameters": "mode=dec cipher=aes-256-cbc",
+                    "input": "fileSource_{{auto}}"
+                },
+                {
+                    "type": "element",
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "{{values.G_VideoCodec}}parse"
+                },
+                {
+                    "elementName": "",
+                    "parameters": "sync=true"
+                },
+                {
+                    "name": "bps_decrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "queue"
+                },
+                {
+                    "elementName": "crypto",
+                    "parameters": "mode=enc cipher=aes-256-cbc"
+                },
+                {
+                    "name": "bps_encrypt_{{auto}}",
+                    "elementName": "bps",
+                    "parameters": "bps-update-interval=2000"
+                },
+                {
+                    "elementName": "multifilesink",
+                    "parameters": "next-file=max-size max-file-size=10485760 location={{env.outputDir}}/encryptStorage/primary_{{auto}}.{{values.G_VideoCodec}} max-files=1"
+                }
+            ]
+        }
+    }
+}
