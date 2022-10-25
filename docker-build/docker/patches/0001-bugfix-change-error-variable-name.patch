@@ -1,0 +1,25 @@
+From d053c9f632c95ea987f69686eacc60f3bb0dd410 Mon Sep 17 00:00:00 2001
+From: Han Bing <bing.han@intel.com>
+Date: Thu, 16 Jun 2022 12:22:31 +0800
+Subject: [PATCH] bugfix: change error variable name
+
+---
+ source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py b/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py
+index c93e318..f495aa1 100644
+--- a/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py
++++ b/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py
+@@ -111,7 +111,7 @@ class KPI_Model:
+                     exit()
+             else:
+                 warning_message = "[Frame :" + str(frame_index ) + "] WARNING-2: Workload rendered " + str(round((1 / sum(self.frame_Latencies_queue) ) * 1000))  + " (below min of " \
+-                        + str(self.kpi_window_size)  + ") frames in " + str(self.kpi_2_window_milliseconds) + " milliseconds"
++                        + str(self.kpi_2_min_frames_per_window)  + ") frames in " + str(self.kpi_2_window_milliseconds) + " milliseconds"
+                 print(warning_message)
+                 if self.MsgBusObj is not None:
+                     self.MsgBusObj.send_msg(warning_message,self.MsgBusObj.WARNING_2_FMT)
+-- 
+2.30.2
+

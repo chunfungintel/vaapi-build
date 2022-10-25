@@ -1,0 +1,10 @@
+#!/bin/bash
+
+DLSTREAMER_DIR=/opt/intel/dlstreamer
+LIBDIR=${DLSTREAMER_DIR}/lib
+
+export GST_PLUGIN_PATH=${LIBDIR}/gstreamer-1.0:${GST_PLUGIN_PATH}
+export LIBRARY_PATH=${LIBDIR}:${LIBRARY_PATH}
+export LD_LIBRARY_PATH=${LIBDIR}:${LIBDIR}/gstreamer-1.0:${LD_LIBRARY_PATH}
+export PKG_CONFIG_PATH=${LIBDIR}/pkgconfig:${PKG_CONFIG_PATH}
+export PYTHONPATH=${DLSTREAMER_DIR}/python:${PYTHONPATH}

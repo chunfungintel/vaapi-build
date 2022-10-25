@@ -1,0 +1,26 @@
+From d2a74811487a9b388961b9cf030b8cabbba7867b Mon Sep 17 00:00:00 2001
+From: Han Bing <bing.han@intel.com>
+Date: Fri, 8 Jul 2022 17:02:53 +0700
+Subject: [PATCH 2/2] fix: python videoinfo
+
+---
+ python/gstgva/video_frame.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/python/gstgva/video_frame.py b/python/gstgva/video_frame.py
+index 910af80..095c7cc 100644
+--- a/python/gstgva/video_frame.py
++++ b/python/gstgva/video_frame.py
+@@ -48,7 +48,8 @@ class VideoFrame:
+             self.__video_info = video_info
+         elif caps:
+             self.__video_info = GstVideo.VideoInfo()
+-            self.__video_info.from_caps(caps)
++            #self.__video_info.from_caps(caps)
++            self.__video_info = GstVideo.VideoInfo.new_from_caps(caps)
+         elif self.video_meta():
+             self.__video_info = GstVideo.VideoInfo()
+             self.__video_info.width = self.video_meta().width
+-- 
+2.34.1
+

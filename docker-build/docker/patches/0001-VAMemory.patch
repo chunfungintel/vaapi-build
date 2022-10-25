@@ -1,0 +1,140 @@
+From 0327913fb1d62e7901b9d7a29b0fbc21be84a8a7 Mon Sep 17 00:00:00 2001
+From: bfbingfeng <bingfeng.lu@intel.com>
+Date: Fri, 2 Sep 2022 10:14:03 +0700
+Subject: [PATCH] VAMemory
+
+---
+ dlstreamer/buffer.h                                      | 4 ++--
+ dlstreamer/gst/vaapi_context.h                           | 4 ++--
+ gst/common/gva_caps.h                                    | 2 +-
+ gst/elements/gvawatermark/gvawatermark.cpp               | 8 ++++----
+ gst/inference_elements/base/inference_singleton.cpp      | 2 +-
+ gst/preview_elements/common/capabilities/tensor_caps.hpp | 2 +-
+ gst/preview_elements/common/memory_type.hpp              | 2 +-
+ 7 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/dlstreamer/buffer.h b/dlstreamer/buffer.h
+index 4b4ff87..a5f4169 100644
+--- a/dlstreamer/buffer.h
++++ b/dlstreamer/buffer.h
+@@ -66,7 +66,7 @@ inline std::string_view buffer_type_to_string(BufferType type) {
+     case BufferType::GST_BUFFER:
+         return "GStreamer";
+     case BufferType::VAAPI_SURFACE:
+-        return "VASurface";
++        return "VAMemory";
+     case BufferType::DMA_FD:
+         return "DMABuf";
+     case BufferType::USM:
+@@ -88,7 +88,7 @@ static inline BufferType buffer_type_from_string(std::string str) {
+         return BufferType::CPU;
+     if (str == "GStreamer")
+         return BufferType::GST_BUFFER;
+-    if (str == "VASurface")
++    if (str == "VAMemory")
+         return BufferType::VAAPI_SURFACE;
+     if (str == "DMABuf")
+         return BufferType::DMA_FD;
+diff --git a/dlstreamer/gst/vaapi_context.h b/dlstreamer/gst/vaapi_context.h
+index 1b9b5d5..e928861 100644
+--- a/dlstreamer/gst/vaapi_context.h
++++ b/dlstreamer/gst/vaapi_context.h
+@@ -31,8 +31,8 @@ class GSTVAAPIContext : public VAAPIContext {
+     }
+ 
+   private:
+-    static constexpr auto GST_VAAPI_DISPLAY_CONTEXT_TYPE_NAME = "gst.vaapi.Display";
+-    static constexpr auto GST_VAAPI_DISPLAY_CONTEXT_FIELD_NAME = "gst.vaapi.Display.GObject";
++    static constexpr auto GST_VAAPI_DISPLAY_CONTEXT_TYPE_NAME = "gst.va.display.handle";
++    static constexpr auto GST_VAAPI_DISPLAY_CONTEXT_FIELD_NAME = "gst-display";
+     static constexpr auto GST_VAAPI_DISPLAY_NAME = "va-display";
+ 
+     GstContext *_context = nullptr;
+diff --git a/gst/common/gva_caps.h b/gst/common/gva_caps.h
+index ac03b73..e750565 100644
+--- a/gst/common/gva_caps.h
++++ b/gst/common/gva_caps.h
+@@ -12,7 +12,7 @@
+ #include <gst/video/video.h>
+ 
+ #define DMABUF_FEATURE_STR "memory:DMABuf"
+-#define VASURFACE_FEATURE_STR "memory:VASurface"
++#define VASURFACE_FEATURE_STR "memory:VAMemory"
+ 
+ #define SYSTEM_MEM_CAPS GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420 }") "; "
+ 
+diff --git a/gst/elements/gvawatermark/gvawatermark.cpp b/gst/elements/gvawatermark/gvawatermark.cpp
+index 285e9bf..25ffe92 100644
+--- a/gst/elements/gvawatermark/gvawatermark.cpp
++++ b/gst/elements/gvawatermark/gvawatermark.cpp
+@@ -118,7 +118,7 @@ static void gst_gva_watermark_init(GstGvaWatermark *self) {
+     gst_bin_add_many(GST_BIN(self), GST_ELEMENT(gst_object_ref(self->identity)),
+                      GST_ELEMENT(gst_object_ref(self->watermarkimpl)), nullptr);
+ 
+-    auto factory = gst_element_factory_find("vaapipostproc");
++    auto factory = gst_element_factory_find("vapostproc");
+     auto sg_factory = makeScopeGuard([factory]() {
+         if (factory)
+             gst_object_unref(factory);
+@@ -291,9 +291,9 @@ static gboolean unlink_videoconvert(GstGvaWatermark *self) {
+ // VA-API path:
+ // |ghost sink| -> <identity> -> <vaapipostproc> -> <capsfilter> -> <watermarkimpl> -> <vaapipostproc> -> |ghost src|
+ static gboolean gva_watermark_link_vaapi_path(GstGvaWatermark *self, CapsFeature in_mem_type) {
+-    self->preproc = gst_element_factory_make("vaapipostproc", nullptr);
++    self->preproc = gst_element_factory_make("vapostproc", nullptr);
+     self->capsfilter = gst_element_factory_make("capsfilter", nullptr);
+-    self->postproc = gst_element_factory_make("vaapipostproc", nullptr);
++    self->postproc = gst_element_factory_make("vapostproc", nullptr);
+ 
+     if (!self->preproc || !self->postproc || !self->capsfilter) {
+         GST_ELEMENT_ERROR(self, CORE, MISSING_PLUGIN, ("GStreamer installation is missing plugins of VA-API path"),
+@@ -366,7 +366,7 @@ static void gva_watermark_unlink_vaapi_path(GstGvaWatermark *self) {
+ // |ghost sink| -> <identity> -> <watermarkimpl> -> |ghost src|
+ static gboolean gva_watermark_link_direct_path(GstGvaWatermark *self, bool use_postproc = false) {
+     if (use_postproc) {
+-        self->postproc = gst_element_factory_make("vaapipostproc", nullptr);
++        self->postproc = gst_element_factory_make("vapostproc", nullptr);
+         if (!self->postproc) {
+             GST_ERROR_OBJECT(self, "Could not create vaapipostproc instance");
+         }
+diff --git a/gst/inference_elements/base/inference_singleton.cpp b/gst/inference_elements/base/inference_singleton.cpp
+index 138c9ca..69b5d40 100644
+--- a/gst/inference_elements/base/inference_singleton.cpp
++++ b/gst/inference_elements/base/inference_singleton.cpp
+@@ -115,7 +115,7 @@ std::string capsFeatureString(CapsFeature newCapsFeature) {
+     case SYSTEM_MEMORY_CAPS_FEATURE:
+         return "System";
+     case VA_SURFACE_CAPS_FEATURE:
+-        return "VASurface";
++        return "VAMemory";
+     case DMA_BUF_CAPS_FEATURE:
+         return "DMABuf";
+     }
+diff --git a/gst/preview_elements/common/capabilities/tensor_caps.hpp b/gst/preview_elements/common/capabilities/tensor_caps.hpp
+index 687f1f4..2b22be7 100644
+--- a/gst/preview_elements/common/capabilities/tensor_caps.hpp
++++ b/gst/preview_elements/common/capabilities/tensor_caps.hpp
+@@ -15,7 +15,7 @@
+ #define GVA_TENSORS_CAPS GVA_TENSOR_MEDIA_NAME ";"
+ 
+ #ifdef ENABLE_VAAPI
+-#define GVA_VAAPI_TENSORS_CAPS GVA_TENSOR_MEDIA_NAME "(memory:VASurface);"
++#define GVA_VAAPI_TENSORS_CAPS GVA_TENSOR_MEDIA_NAME "(memory:VAMemory);"
+ #else
+ #define GVA_VAAPI_TENSORS_CAPS ""
+ #endif
+diff --git a/gst/preview_elements/common/memory_type.hpp b/gst/preview_elements/common/memory_type.hpp
+index 7d2046d..cdc9fb9 100644
+--- a/gst/preview_elements/common/memory_type.hpp
++++ b/gst/preview_elements/common/memory_type.hpp
+@@ -11,6 +11,6 @@
+ #include <inference_backend/image.h>
+ 
+ #define DMABUF_FEATURE_STR "memory:DMABuf"
+-#define VASURFACE_FEATURE_STR "memory:VASurface"
++#define VASURFACE_FEATURE_STR "memory:VAMemory"
+ 
+ InferenceBackend::MemoryType get_memory_type_from_caps(const GstCaps *caps);
+-- 
+2.34.1
+

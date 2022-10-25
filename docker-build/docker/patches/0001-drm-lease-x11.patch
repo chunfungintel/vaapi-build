@@ -1,0 +1,143 @@
+From 04916dcbc18b601d6d4267b6f54679f088e97724 Mon Sep 17 00:00:00 2001
+From: bfbingfeng <bingfeng.lu@intel.com>
+Date: Wed, 13 Jul 2022 14:10:52 +0700
+Subject: [PATCH] drm-lease-x11
+
+---
+ drm-lease-x11.c | 46 ++++++++++++++++++++++++++++++++++++++--------
+ drm-lease.c     |  2 +-
+ 2 files changed, 39 insertions(+), 9 deletions(-)
+
+diff --git a/drm-lease-x11.c b/drm-lease-x11.c
+index e0a9c3e..8b4f281 100644
+--- a/drm-lease-x11.c
++++ b/drm-lease-x11.c
+@@ -2,7 +2,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#include "config.h"
++//#include "config.h"
+ #include "drm-lease.h"
+ 
+ #ifdef HAVE_XRANDR
+@@ -53,6 +53,8 @@ static const char *xrandr_err[] = {
+     [XCB_RANDR_BAD_PROVIDER] = "BadProvider",
+ };
+ 
++//pthread_mutex_t lease_mutex     = PTHREAD_MUTEX_INITIALIZER;
++
+ static void xserver_print_error(xserver_t *x,
+                                 xcb_generic_error_t *error)
+ {
+@@ -94,30 +96,42 @@ static xcb_randr_output_t xserver_find_output(xserver_t *x,
+     return output;
+ }
+ 
+-static xcb_randr_crtc_t xserver_find_crtc(xserver_t *x, xcb_randr_output_t output)
++static xcb_randr_crtc_t xserver_find_crtc(xserver_t *x, xcb_randr_output_t output, int crtc_idx)
+ {
+     xcb_randr_crtc_t *rc = xcb_randr_get_screen_resources_crtcs(x->gsr_r);
+     xcb_randr_get_crtc_info_cookie_t gci_c;
+     xcb_randr_get_crtc_info_reply_t *gci_r;
+     int c;
+-
++    //fprintf(stderr, "drm-lease: xserver_find_crtc: x->gsr_r->num_crtcs=%d, rc[0]=0x%x, rc[1]=0x%x, rc[2]=0x%x, rc[3]=0x%x\n", x->gsr_r->num_crtcs, rc[0], rc[1], rc[2],rc[3]);
+     for (c = 0; c < x->gsr_r->num_crtcs; c++) {
+         gci_c = xcb_randr_get_crtc_info(x->conn, rc[c], x->gsr_r->config_timestamp);
+         gci_r = xcb_randr_get_crtc_info_reply(x->conn, gci_c, NULL);
++        //fprintf(stderr, "drm-lease: xserver_find_crtc: c=%d, gci_r->mode=0x%x\n", c, gci_r->mode);
+         if (gci_r->mode) {
+             int num_outputs = xcb_randr_get_crtc_info_outputs_length(gci_r);
+             xcb_randr_output_t *outputs = xcb_randr_get_crtc_info_outputs(gci_r);
++            //fprintf(stderr, "drm-lease: xserver_find_crtc: num_outputs=%d, outputs[0]=0x%x, output=0x%x\n", num_outputs,outputs[0],output);            
+             if (num_outputs == 1 && outputs[0] == output) {
+                 return rc[c];
+             }
+         } else {
++            if ((crtc_idx < x->gsr_r->num_crtcs) && (crtc_idx>=0))
++                return rc[crtc_idx];
++            /* add crtc_idx as kmssink input so that we directly pass this to return the output */
++            /*
++            int num_outputs = xcb_randr_get_crtc_info_outputs_length(gci_r);
++            fprintf(stderr, "drm-lease: xserver_find_crtc: num_outputs=%d\n", num_outputs); 
++            if(num_outputs > 0) continue;
+             int num_possible = xcb_randr_get_crtc_info_possible_length(gci_r);
+             xcb_randr_output_t *possible = xcb_randr_get_crtc_info_possible(gci_r);
++            //fprintf(stderr, "drm-lease: xserver_find_crtc: num_possible=%d, possible[0]=0x%x, possible[1]=0x%x, possible[2]=0x%x, possible[3]=0x%x, possible[4]=0x%x, possible[5]=0x%x, c=%d, rc[c]=0x%x, output=0x%x\n", num_possible, possible[0], possible[1], possible[2],possible[3], possible[4], possible[5], c, rc[c], output);
+             for (int p = 0; p < num_possible; p++) {
++                //fprintf(stderr, "drm-lease: xrandr: num_possible = %d p=%d possible[p]=0x%x in thread number %ld\n", num_possible, p, possible[p], pthread_self());
+                 if (possible[p] == output) {
++                    //fprintf(stderr, "drm-lease: xrandr: p=%d possible[p]=0x%x output=0x%x rc[c]=0x%x in thread number %ld\n", p, possible[p], output, rc[c], pthread_self());
+                     return rc[c];
+                 }
+-            }
++            }*/
+         }
+         free(gci_r);
+     }
+@@ -135,7 +149,21 @@ static void xserver_lease_setup(xserver_t *x, const char *output_name)
+     xcb_randr_output_t output;
+     xcb_randr_crtc_t crtc;
+     int screen;
+-
++    
++    /* add crtc_idx as kmssink input so that output_name contains the crtc_index and the monitor name */
++    char output_str[30], crtc_str[2];
++    int crtc_no=0, len;
++
++    len = strlen(output_name);
++    if ((len>2)&&(len<32))
++    {
++        memset(output_str, '\0', sizeof(output_str));
++        memset(crtc_str, '\0', sizeof(crtc_str));
++        strncpy(output_str, output_name+2, (strlen(output_name)-2));
++        strncpy(crtc_str, output_name, 1);
++        crtc_no = atoi((const char *)crtc_str);
++    }
++    
+     x->conn = xcb_connect(NULL, &screen);
+     if (!x->conn) {
+         fprintf(stderr, "drm-lease: can not connect to X server\n");
+@@ -179,20 +207,22 @@ static void xserver_lease_setup(xserver_t *x, const char *output_name)
+         fprintf(stderr, "drm-lease: xrandr: can not get screen resources\n");
+         exit(1);
+     }
+-
+-    output = xserver_find_output(x, output_name);
++    
++    output = xserver_find_output(x, (const char *)output_str);
+     if (output == XCB_NONE) {
+         fprintf(stderr, "drm-lease: xrandr: no output found\n");
+         exit(1);
+     }
+     fprintf(stderr, "drm-lease: xrandr: using output 0x%x\n", output);
++    //fprintf(stderr, "drm-lease: xrandr: using output 0x%x in thread number %ld\n", output, pthread_self());
+ 
+-    crtc = xserver_find_crtc(x, output);
++    crtc = xserver_find_crtc(x, output, crtc_no);
+     if (crtc == XCB_NONE) {
+         fprintf(stderr, "drm-lease: xrandr: crtc not found\n");
+         exit(1);
+     }
+     fprintf(stderr, "drm-lease: xrandr: using crtc 0x%x\n", crtc);
++    //fprintf(stderr, "drm-lease: xrandr: using output 0x%x using crtc 0x%x in thread number %ld\n", output, crtc, pthread_self());
+ 
+     /* Generate RandR lease id */
+     x->randr_lease = xcb_generate_id(x->conn);
+diff --git a/drm-lease.c b/drm-lease.c
+index 881bba2..a217997 100644
+--- a/drm-lease.c
++++ b/drm-lease.c
+@@ -2,7 +2,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#include "config.h"
++//#include "config.h"
+ #include "drm-lease.h"
+ 
+ int drm_lease(const char *output)
+-- 
+2.34.1
+

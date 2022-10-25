@@ -1,0 +1,62 @@
+From 37998dfd733ac3b007f3fdf759e56d3288ca19d9 Mon Sep 17 00:00:00 2001
+From: Han Bing <bing.han@intel.com>
+Date: Fri, 1 Jul 2022 13:06:53 +0700
+Subject: [PATCH] ubuntu 22.04
+
+---
+ CMakeLists.txt                                                | 2 ++
+ install_build_dependencies.sh                                 | 4 ++--
+ .../python/src/compatibility/openvino/requirements-dev.txt    | 4 ++--
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index fe62c6318..b77a9714e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -11,6 +11,8 @@ else()
+     cmake_minimum_required(VERSION 3.13)
+ endif()
+ 
++set(CMAKE_POLICY_DEFAULT_CMP0127 NEW)
++
+ project(OpenVINO DESCRIPTION "OpenVINO toolkit")
+ 
+ set(IE_MAIN_SOURCE_DIR ${OpenVINO_SOURCE_DIR}/inference-engine)
+diff --git a/install_build_dependencies.sh b/install_build_dependencies.sh
+index 33f414509..f4e25c3c7 100755
+--- a/install_build_dependencies.sh
++++ b/install_build_dependencies.sh
+@@ -50,7 +50,7 @@ if [ -f /etc/lsb-release ]; then
+             autoconf \
+             shellcheck \
+             patchelf \
+-            libenchant1c2a \
++            libenchant-2-2 \
+             python3-pip \
+             python3-enchant \
+             python3-setuptools \
+@@ -68,7 +68,7 @@ if [ -f /etc/lsb-release ]; then
+     if apt-cache search --names-only '^libjson-c2'| grep -q libjson-c2; then
+         sudo -E apt-get install -y libjson-c2
+     else
+-        sudo -E apt-get install -y libjson-c3
++        sudo -E apt-get install -y libjson-c5
+     fi
+     if apt-cache search --names-only '^libpng12-dev'| grep -q libpng12; then
+         sudo -E apt-get install -y libpng12-dev
+diff --git a/src/bindings/python/src/compatibility/openvino/requirements-dev.txt b/src/bindings/python/src/compatibility/openvino/requirements-dev.txt
+index 8096521bc..ef7988dd4 100644
+--- a/src/bindings/python/src/compatibility/openvino/requirements-dev.txt
++++ b/src/bindings/python/src/compatibility/openvino/requirements-dev.txt
+@@ -1,5 +1,5 @@
+ opencv-python>=3.4.4.19
+ pytest==4.0.1
+-attrs==19.1.0
++attrs
+ pytest-html==1.19.0
+-cython>=0.29.22
+\ No newline at end of file
++cython>=0.29.22
+-- 
+2.34.1
+

@@ -1,0 +1,15 @@
+diff --git a/inference_backend/image_inference/openvino/model_loader.cpp b/inference_backend/image_inference/openvino/model_loader.cpp
+index f11b652..af0d97b 100644
+--- a/inference_backend/image_inference/openvino/model_loader.cpp
++++ b/inference_backend/image_inference/openvino/model_loader.cpp
+@@ -250,7 +250,9 @@ InferenceEngine::ExecutableNetwork IrModelLoader::import(InferenceEngine::CNNNet
+         if (base_config.count(KEY_DEVICE) == 0)
+             throw std::runtime_error("Inference device is not specified");
+         const std::string &device = base_config.at(KEY_DEVICE);
+-
++        if (device.find("GPU") != device.npos) {
++            IeCoreSingleton::Instance().SetConfig({{InferenceEngine::CLDNNConfigParams::KEY_CLDNN_PLUGIN_THROTTLE, "1"}});
++        }
+         executable_network = IeCoreSingleton::Instance().LoadNetwork(network, device, inference_config);
+     }
+ 

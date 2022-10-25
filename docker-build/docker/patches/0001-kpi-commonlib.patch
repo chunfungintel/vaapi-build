@@ -1,0 +1,131 @@
+From b5fe5c62bb4811636f609484c72b95e94d0d9881 Mon Sep 17 00:00:00 2001
+From: Chong Yi Chai <chong.yi.chai@intel.com>
+Date: Tue, 30 Aug 2022 13:24:19 +0800
+Subject: [PATCH] kpi.py: update kpi2 flow
+
+The implementation of keeping fixed minimum frames and calculate sum of accumulated
+time is similar to kpi1, which calculate each frame's duration. The problem with
+this implementation is that there's no chance of recovery if a frame is taking too
+long to process.
+Update implementation of kpi2 to follow c++ where kpi evaluation is done when sum of
+accumulated time of each frame is greater than KPI window. This flow allow recovery
+if the next few frames are taking lesser time to process.
+
+Signed-off-by: Chong Yi Chai <chong.yi.chai@intel.com>
+---
+ .../WorkloadCommonLib/kpi.py                  | 74 +++++++++----------
+ 1 file changed, 37 insertions(+), 37 deletions(-)
+
+diff --git a/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py b/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py
+index c93e318..0d4c447 100644
+--- a/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py
++++ b/source-python/WorkloadCommonLib/WorkloadCommonLib/kpi.py
+@@ -19,11 +19,11 @@ def __init__(self):
+         self.KPIPauseToFrame = 0
+         self.KPIMTBFTime_Milliseconds = 0
+         self.timeOfTestStart_Milliseconds = 0
+-        
++
+     def init_KPI_model(self, app_Name, kpi_config, msgbus_obj=None):
+         self.MsgBusObj = msgbus_obj
+         self.KPIPauseToFrame = 0
+-  
++
+         self.kpi_param_init(kpi_config)
+ 
+         self.KPIMTBFTime_Milliseconds = 10 * (pow(10, self.kpi_number_nines))
+@@ -34,10 +34,7 @@ def init_KPI_model(self, app_Name, kpi_config, msgbus_obj=None):
+                 print("ERROR: KPI MTBF {:.2f}s configured (via # 9's) to smaller time window as compared kpi measurement time {:.2f}s \n \
+                         ".format(self.KPIMTBFTime_Milliseconds,self.kpi_2_window_milliseconds))
+                 exit()
+-                
+-        for i in range(self.kpi_2_min_frames_per_window):
+-            self.frame_Latencies_queue.append(0)
+-    
++
+     def kpi_param_init(self, kpi_config):
+         self.kpi_1_enabled = kpi_config.get('kpi_1_enabled')
+         self.kpi_2_enabled = kpi_config.get('kpi_2_enabled')
+@@ -57,14 +54,14 @@ def evaluate_kpi(self,frame_index, frameTime_Milliseconds):
+            currTime_Milliseconds = time.time() * 1000
+            if currTime_Milliseconds >= self.Start_Milliseconds + (self.kpi_settling_time_seconds * 1000):
+                if self.timeOfTestStart_Milliseconds == 0:
+-                  self.timeOfTestStart_Milliseconds = time.time() * 1000   
++                  self.timeOfTestStart_Milliseconds = time.time() * 1000
+                   print("Time Of TestStart in Milliseconds {} ".format(self.timeOfTestStart_Milliseconds))
+                if self.kpi_1_enabled:
+                   self.check_Error1(frame_index, frameTime_Milliseconds)
+                if self.kpi_2_enabled :
+                    self.check_Error2(frame_index, frameTime_Milliseconds)
+-        
+-  
++
++
+     def check_Error1(self,frame_index, frameTime_Milliseconds):
+         if frame_index >= self.KPIPauseToFrame:
+             if (frameTime_Milliseconds > self.kpi_1_max_frametime_milliseconds):
+@@ -88,33 +85,36 @@ def check_Error1(self,frame_index, frameTime_Milliseconds):
+                             + str(self.kpi_1_max_frametime_milliseconds) + "ms"
+                     print(warning_message)
+                     if self.MsgBusObj is not None:
+-                        self.MsgBusObj.send_msg(warning_message,self.MsgBusObj.WARNING_1_FMT) 
+-                    print("  |-- Failure Time: {:.2f} ms (MTBF = {:.2f} ms)\n".format(timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds, self.KPIMTBFTime_Milliseconds)) 
+-                self.timeOfTestStart_Milliseconds = timeOfFailure_Milliseconds 
++                        self.MsgBusObj.send_msg(warning_message,self.MsgBusObj.WARNING_1_FMT)
++                    print("  |-- Failure Time: {:.2f} ms (MTBF = {:.2f} ms)\n".format(timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds, self.KPIMTBFTime_Milliseconds))
++                self.timeOfTestStart_Milliseconds = timeOfFailure_Milliseconds
+ 
+-    def check_Error2(self,frame_index, frameTime_Milliseconds):            
+-        temp = self.frame_Latencies_queue.pop(0)
++    def check_Error2(self,frame_index, frameTime_Milliseconds):
+         self.frame_Latencies_queue.append(frameTime_Milliseconds)
+-        
+-        timeOfFailure_Milliseconds = time.time() * 1000
+-        if (sum(self.frame_Latencies_queue) > self.kpi_2_window_milliseconds):
+-            if (timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds) < self.KPIMTBFTime_Milliseconds:
+-                error_message = "[Frame :" + str(frame_index ) + "] ERROR-2: Workload rendered less than  min of "  + str(self.kpi_2_min_frames_per_window)  + \
+-                        " consecutive frames in " + str(self.kpi_2_window_milliseconds) + " milliseconds"
+-                print(error_message)
+-                if self.MsgBusObj is not None:
+-                    self.MsgBusObj.send_msg(error_message,self.MsgBusObj.ERROR_2_FMT)
+-                print("  |-- Failure Time: {:.2f} ms (MTBF = {:.2f} ms)\n".format(timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds, self.KPIMTBFTime_Milliseconds))
+-                if self.kpi_exit_on_failure:
+-                    if self.MsgBusObj is not None:
+-                        self.MsgBusObj.cleanup_msg_bus()
+-                    exit()
+-            else:
+-                warning_message = "[Frame :" + str(frame_index ) + "] WARNING-2: Workload rendered " + str(round((1 / sum(self.frame_Latencies_queue) ) * 1000))  + " (below min of " \
+-                        + str(self.kpi_window_size)  + ") frames in " + str(self.kpi_2_window_milliseconds) + " milliseconds"
+-                print(warning_message)
+-                if self.MsgBusObj is not None:
+-                    self.MsgBusObj.send_msg(warning_message,self.MsgBusObj.WARNING_2_FMT)
+-                print("  |-- Failure Time: {:.2f} ms (MTBF = {:.2f} ms)\n".format(timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds, self.KPIMTBFTime_Milliseconds))
+-            self.timeOfTestStart_Milliseconds = timeOfFailure_Milliseconds
+- 
++        if frame_index >= self.KPIPauseToFrame:
++            if (sum(self.frame_Latencies_queue) >= self.kpi_2_window_milliseconds):
++                if (len(self.frame_Latencies_queue) < self.kpi_2_min_frames_per_window):
++                    timeOfFailure_Milliseconds = time.time() * 1000
++                    if (timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds) < self.KPIMTBFTime_Milliseconds:
++                        error_message = "[Frame :" + str(frame_index ) + "] ERROR-2: Workload rendered " + str(len(self.frame_Latencies_queue)) + " (below min of "  + str(self.kpi_2_min_frames_per_window)  + \
++                        ") consecutive frames in " + str(self.kpi_2_window_milliseconds) + " milliseconds"
++                        print(error_message)
++                        if self.MsgBusObj is not None:
++                            self.MsgBusObj.send_msg(error_message,self.MsgBusObj.ERROR_2_FMT)
++                        print("  |-- Failure Time: {:.2f} ms (MTBF = {:.2f} ms)\n".format(timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds, self.KPIMTBFTime_Milliseconds))
++                        self.KPIPauseToFrame = frame_index + self.kpi_2_min_frames_per_window
++                        if self.kpi_exit_on_failure:
++                            if self.MsgBusObj is not None:
++                                self.MsgBusObj.cleanup_msg_bus()
++                            exit()
++                    else:
++                        warning_message = "[Frame :" + str(frame_index ) + "] WARNING-2: Workload rendered " + str(len(self.frame_Latencies_queue))  + " (below min of " \
++                        + str(self.kpi_2_min_frames_per_window)  + ") frames in " + str(self.kpi_2_window_milliseconds) + " milliseconds"
++                        print(warning_message)
++                        if self.MsgBusObj is not None:
++                            self.MsgBusObj.send_msg(warning_message,self.MsgBusObj.WARNING_2_FMT)
++                        print("  |-- Failure Time: {:.2f} ms (MTBF = {:.2f} ms)\n".format(timeOfFailure_Milliseconds - self.timeOfTestStart_Milliseconds, self.KPIMTBFTime_Milliseconds))
++                    self.timeOfTestStart_Milliseconds = timeOfFailure_Milliseconds
++        while (sum(self.frame_Latencies_queue) >= self.kpi_2_window_milliseconds):
++            temp = self.frame_Latencies_queue.pop(0)
++

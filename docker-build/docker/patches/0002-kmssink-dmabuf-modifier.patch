@@ -1,0 +1,147 @@
+From 7bf824ad31fca7991967c1fc2276ed462e612c9f Mon Sep 17 00:00:00 2001
+From: bfbingfeng <bingfeng.lu@intel.com>
+Date: Fri, 22 Jul 2022 15:33:42 +0700
+Subject: [PATCH] kmssink-dmabuf-modifier
+
+---
+ .../gst-plugins-bad/sys/kms/gstkmsallocator.c | 47 ++++++++++++++++++-
+ .../gst-plugins-bad/sys/kms/gstkmssink.c      |  8 +++-
+ .../gst-plugins-bad/sys/kms/gstkmsutils.c     | 10 +++-
+ 3 files changed, 60 insertions(+), 5 deletions(-)
+
+diff --git a/subprojects/gst-plugins-bad/sys/kms/gstkmsallocator.c b/subprojects/gst-plugins-bad/sys/kms/gstkmsallocator.c
+index 6687f3b0a3..d7efe039be 100644
+--- a/subprojects/gst-plugins-bad/sys/kms/gstkmsallocator.c
++++ b/subprojects/gst-plugins-bad/sys/kms/gstkmsallocator.c
+@@ -38,7 +38,7 @@
+ #include <drm.h>
+ 
+ #include <gst/allocators/gstdmabuf.h>
+-
++#include <drm_fourcc.h>
+ #include "gstkmsallocator.h"
+ #include "gstkmsutils.h"
+ 
+@@ -453,6 +453,49 @@ gst_kms_allocator_add_fb (GstKMSAllocator * alloc, GstKMSMemory * kmsmem,
+   return TRUE;
+ }
+ 
++static gboolean
++gst_kms_allocator_add_fb_modifier (GstKMSAllocator * alloc, GstKMSMemory * kmsmem,
++    gsize in_offsets[GST_VIDEO_MAX_PLANES], GstVideoInfo * vinfo)
++{
++  gint i, ret;
++  gint num_planes = GST_VIDEO_INFO_N_PLANES (vinfo);
++  guint64 modifiers[4] = { I915_FORMAT_MOD_Y_TILED, I915_FORMAT_MOD_Y_TILED, };
++  guint32 w, h, fmt, bo_handles[4] = { 0, };
++  guint32 pitches[4] = { 0, };
++  guint32 offsets[4] = { 0, };
++
++  if (kmsmem->fb_id)
++    return TRUE;
++
++  w = GST_VIDEO_INFO_WIDTH (vinfo);
++  h = GST_VIDEO_INFO_HEIGHT (vinfo);
++  fmt = gst_drm_format_from_video (GST_VIDEO_INFO_FORMAT (vinfo));
++
++  for (i = 0; i < num_planes; i++) {
++    if (kmsmem->bo)
++      bo_handles[i] = kmsmem->bo->handle;
++    else
++      bo_handles[i] = kmsmem->gem_handle[i];
++
++    pitches[i] = GST_VIDEO_INFO_PLANE_STRIDE (vinfo, i);
++    offsets[i] = in_offsets[i];
++  }
++
++  GST_DEBUG_OBJECT (alloc, "bo handles: %d, %d, %d, %d", bo_handles[0],
++      bo_handles[1], bo_handles[2], bo_handles[3]);
++
++  ret = drmModeAddFB2WithModifiers (alloc->priv->fd, w, h, fmt, bo_handles,
++      pitches, offsets, modifiers, &kmsmem->fb_id,
++      modifiers[0] ? DRM_MODE_FB_MODIFIERS : 0);
++  if (ret) {
++    GST_ERROR_OBJECT (alloc, "Failed to bind to framebuffer: %s (%d)",
++        g_strerror (errno), errno);
++    return FALSE;
++  }
++
++  return TRUE;
++}
++
+ GstMemory *
+ gst_kms_allocator_bo_alloc (GstAllocator * allocator, GstVideoInfo * vinfo)
+ {
+@@ -514,7 +557,7 @@ gst_kms_allocator_dmabuf_import (GstAllocator * allocator, gint * prime_fds,
+       goto import_fd_failed;
+   }
+ 
+-  if (!gst_kms_allocator_add_fb (alloc, kmsmem, offsets, vinfo))
++  if (!gst_kms_allocator_add_fb_modifier (alloc, kmsmem, offsets, vinfo))
+     goto failed;
+ 
+   for (i = 0; i < n_planes; i++) {
+diff --git a/subprojects/gst-plugins-bad/sys/kms/gstkmssink.c b/subprojects/gst-plugins-bad/sys/kms/gstkmssink.c
+index c3db48fdf9..6a2053720e 100644
+--- a/subprojects/gst-plugins-bad/sys/kms/gstkmssink.c
++++ b/subprojects/gst-plugins-bad/sys/kms/gstkmssink.c
+@@ -529,7 +529,7 @@ static gboolean
+ ensure_allowed_caps (GstKMSSink * self, drmModeConnector * conn,
+     drmModePlane * plane, drmModeRes * res)
+ {
+-  GstCaps *out_caps, *tmp_caps, *caps;
++  GstCaps *out_caps, *tmp_caps, *caps, *dma_caps;
+   int i, j;
+   GstVideoFormat fmt;
+   const gchar *format;
+@@ -584,6 +584,12 @@ ensure_allowed_caps (GstKMSSink * self, drmModeConnector * conn,
+         continue;
+ 
+       tmp_caps = gst_caps_merge (tmp_caps, caps);
++
++      #define FORMATSINK GST_VIDEO_CAPS_MAKE("{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:DMABuf", "{ NV12 }") "; "
++
++      dma_caps = gst_caps_from_string (FORMATSINK);
++      tmp_caps = gst_caps_merge (tmp_caps, dma_caps);
++      
+     }
+ 
+     out_caps = gst_caps_merge (out_caps, gst_caps_simplify (tmp_caps));
+diff --git a/subprojects/gst-plugins-bad/sys/kms/gstkmsutils.c b/subprojects/gst-plugins-bad/sys/kms/gstkmsutils.c
+index cc719fcd64..b39ea4a79f 100644
+--- a/subprojects/gst-plugins-bad/sys/kms/gstkmsutils.c
++++ b/subprojects/gst-plugins-bad/sys/kms/gstkmsutils.c
+@@ -28,7 +28,7 @@
+ #endif
+ 
+ #include <drm_fourcc.h>
+-
++#include <gst/allocators/gstdmabuf.h>
+ #include "gstkmsutils.h"
+ 
+ /* *INDENT-OFF* */
+@@ -198,7 +198,7 @@ GstCaps *
+ gst_kms_sink_caps_template_fill (void)
+ {
+   gint i;
+-  GstCaps *caps;
++  GstCaps *caps, *dma_caps;
+   GstStructure *template;
+ 
+   caps = gst_caps_new_empty ();
+@@ -210,6 +210,12 @@ gst_kms_sink_caps_template_fill (void)
+         "framerate", GST_TYPE_FRACTION_RANGE, 0, 1, G_MAXINT, 1, NULL);
+     gst_caps_append_structure (caps, template);
+   }
++
++  #define FORMATSINK GST_VIDEO_CAPS_MAKE("{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:DMABuf", "{ NV12 }") "; "
++
++  dma_caps = gst_caps_from_string (FORMATSINK);
++  gst_caps_append (caps, dma_caps);
++  
+   return gst_caps_simplify (caps);
+ }
+ 
+-- 
+2.34.1
+

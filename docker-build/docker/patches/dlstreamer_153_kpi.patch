@@ -1,0 +1,216 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e91ca74..7b4e1a6 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -138,6 +138,10 @@ option(ENABLE_RDKAFKA_INSTALLATION "Enables rdkafka installation" OFF)
+ option(USE_VPUSMM "Parameter to use VPUSMM" OFF)
+ option(USE_VPUMGR "Parameter to use VPUMGR" OFF)
+ option(ENABLE_VPUX "Enables VPUX specific features" OFF)
++option(ENABLE_PERF_CAL "Parameter to enable WLC perf calculations" ON)
++if (${ENABLE_PERF_CAL})
++        message("ENABLE_PERF_CAL is set to ON")
++endif()
+ if(USE_VPUSMM)
+     message(WARNING "USE_VPUSMM parameter is deprecated. ENABLE_VPUX is force-enabled instead")
+     SET(ENABLE_VPUX ON CACHE BOOL "Enables VPUX specific features" FORCE)
+diff --git a/cmake/config.h.in b/cmake/config.h.in
+index c2bc295..cef12e7 100644
+--- a/cmake/config.h.in
++++ b/cmake/config.h.in
+@@ -12,4 +12,5 @@
+ #cmakedefine ENABLE_ITT
+ #cmakedefine ENABLE_VAS_TRACKER
+ 
++#cmakedefine ENABLE_PERF_CAL
+ #endif
+diff --git a/gst/audio_inference_elements/base/audio_infer_impl.cpp b/gst/audio_inference_elements/base/audio_infer_impl.cpp
+index 1ed46e6..0e8de6d 100644
+--- a/gst/audio_inference_elements/base/audio_infer_impl.cpp
++++ b/gst/audio_inference_elements/base/audio_infer_impl.cpp
+@@ -6,6 +6,7 @@
+ 
+ #include "audio_infer_impl.h"
+ #include <cmath>
++#include <stdexcept>
+ 
+ AudioInferImpl::~AudioInferImpl() {
+ }
+@@ -53,4 +54,4 @@ void AudioInferImpl::setStartTime(ulong start_time) {
+ 
+ void AudioInferImpl::setNumOfSamplesToSlide() {
+     sliding_samples = std::round(audio_base_inference->sliding_length * SAMPLE_AUDIO_RATE);
+-}
+\ No newline at end of file
++}
+diff --git a/gst/elements/gvatrack/tracker_c.cpp b/gst/elements/gvatrack/tracker_c.cpp
+index 50752c3..b5a027a 100644
+--- a/gst/elements/gvatrack/tracker_c.cpp
++++ b/gst/elements/gvatrack/tracker_c.cpp
+@@ -3,7 +3,7 @@
+  *
+  * SPDX-License-Identifier: MIT
+  ******************************************************************************/
+-
++#include <stdexcept>
+ #include "tracker_c.h"
+ #include "tracker_factory.h"
+ #include "utils.h"
+diff --git a/gst/inference_elements/common/gst_smart_pointer_types.hpp b/gst/inference_elements/common/gst_smart_pointer_types.hpp
+index 0ef6dc9..bf20ffe 100644
+--- a/gst/inference_elements/common/gst_smart_pointer_types.hpp
++++ b/gst/inference_elements/common/gst_smart_pointer_types.hpp
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: MIT
+  ******************************************************************************/
+ #pragma once
+-
++#include <stdexcept>
+ #include <gst/gst.h>
+ 
+ #include <functional>
+diff --git a/gst/inference_elements/common/post_processor/post_proc_common.h b/gst/inference_elements/common/post_processor/post_proc_common.h
+index a2f5a45..f9301dc 100644
+--- a/gst/inference_elements/common/post_processor/post_proc_common.h
++++ b/gst/inference_elements/common/post_processor/post_proc_common.h
+@@ -6,6 +6,8 @@
+ 
+ #pragma once
+ 
++#include <stdexcept>
++
+ #include "inference_backend/image_inference.h"
+ 
+ #include <gst/video/gstvideometa.h>
+diff --git a/inference_backend/image_inference/openvino/openvino_image_inference.cpp b/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+index d78a447..abb47ad 100644
+--- a/inference_backend/image_inference/openvino/openvino_image_inference.cpp
++++ b/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+@@ -38,6 +38,18 @@
+ namespace IE = InferenceEngine;
+ using namespace InferenceBackend;
+ 
++#ifdef ENABLE_PERF_CAL
++
++inline std::string fileNameNoExt(const std::string &filepath) {
++    auto pos = filepath.rfind('.');
++    if (pos == std::string::npos)
++        return filepath;
++    return filepath.substr(0, pos);
++}
++
++#endif
++
++
+ namespace {
+ 
+ inline size_t GetTensorSize(InferenceEngine::TensorDesc desc) {
+@@ -223,6 +235,14 @@ void OpenVINOImageInference::SetCompletionCallback(std::shared_ptr<BatchRequest>
+         try {
+             ITT_TASK("completion_callback_lambda");
+ 
++#ifdef ENABLE_PERF_CAL
++	    size_t buffer_size = batch_request->buffers.size();
++            batch_request->end = std::chrono::high_resolution_clock::now();
++            auto time_span = (batch_request->end) - (batch_request->start);
++            auto millis = std::chrono::duration<float,std::milli>(time_span).count();
++	    GVA_FIXME(std::string("model_name: " + model_name + ", inference size: " + std::to_string(buffer_size) + ", Latency: " + std::to_string(millis)).c_str());
++             detection_times.push_back(millis);
++#endif
+             if (code != InferenceEngine::StatusCode::OK) {
+                 std::string msg = "Inference request completion callback failed with InferenceEngine::StatusCode: " +
+                                   std::to_string(code) + "\n\t";
+@@ -293,7 +313,15 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
+         builder = ModelLoader::is_compile_model(model)
+                       ? std::unique_ptr<EntityBuilder>(new CompiledBuilder(config, model, remote_context))
+                       : std::unique_ptr<EntityBuilder>(new IrBuilder(config, model, remote_context));
+-        if (not builder)
++
++#ifdef ENABLE_PERF_CAL
++    size_t pos = model.find_last_of("\\/");
++        std::string latencylog = "/tmp/" + fileNameNoExt(model.substr(pos+1)) + ".txt";
++	//std::string latencylog = "/tmp/"+ model.substr(pos+1) + ".txt";
++    outputFile.open(latencylog.c_str());
++#endif
++
++	if (not builder)
+             throw std::runtime_error("Failed to create DL model loader");
+         network = builder->createNetwork();
+         this->callback = callback;
+@@ -523,6 +551,9 @@ void OpenVINOImageInference::SubmitImage(
+     try {
+         // start inference asynchronously if enough buffers for batching
+         if (request->buffers.size() >= (size_t)batch_size) {
++#ifdef ENABLE_PERF_CAL
++            request->start = std::chrono::high_resolution_clock::now();
++#endif
+             request->infer_request->StartAsync();
+         } else {
+             freeRequests.push_front(request);
+@@ -650,6 +681,11 @@ void OpenVINOImageInference::Close() {
+                 allocator->Free(ac);
+         }
+     }
++#ifdef ENABLE_PERF_CAL
++for (auto i = detection_times.begin(); i != detection_times.end(); ++i)
++ outputFile << *i << ' ';
++outputFile.close();
++#endif
+ }
+ 
+ void OpenVINOImageInference::WorkingFunction(const std::shared_ptr<BatchRequest> &request) {
+diff --git a/inference_backend/image_inference/openvino/openvino_image_inference.h b/inference_backend/image_inference/openvino/openvino_image_inference.h
+index 28e78a4..85d106a 100644
+--- a/inference_backend/image_inference/openvino/openvino_image_inference.h
++++ b/inference_backend/image_inference/openvino/openvino_image_inference.h
+@@ -21,6 +21,14 @@
+ #include "config.h"
+ #include "safe_queue.h"
+ 
++//#ifdef ENABLE_PERF_CAL
++#include <iostream>
++#include <fstream>
++#include <regex>
++#include <assert.h>
++//#endif
++
++
+ struct EntityBuilder;
+ namespace WrapImageStrategy {
+ struct General;
+@@ -33,7 +41,10 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
+                            InferenceBackend::MemoryType memory_type);
+ 
+     virtual ~OpenVINOImageInference();
+-
++#ifdef ENABLE_PERF_CAL
++    std::ofstream outputFile;
++    std::vector<float> detection_times;
++#endif
+     virtual void
+     SubmitImage(const InferenceBackend::Image &image, IFrameBase::Ptr user_data,
+                 const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) override;
+@@ -58,6 +69,11 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
+     struct BatchRequest {
+         InferenceEngine::InferRequest::Ptr infer_request;
+         std::vector<IFrameBase::Ptr> buffers;
++#ifdef ENABLE_PERF_CAL
++        std::chrono::time_point<std::chrono::high_resolution_clock> start;
++        std::chrono::time_point<std::chrono::high_resolution_clock> end;
++        size_t buffer_size;
++#endif
+         std::vector<InferenceBackend::Allocator::AllocContext *> alloc_context;
+         std::vector<InferenceEngine::Blob::Ptr> blob;
+     };
+diff --git a/utils/so_loader.h b/utils/so_loader.h
+index 33c435d..6836445 100644
+--- a/utils/so_loader.h
++++ b/utils/so_loader.h
+@@ -11,6 +11,8 @@
+ #include <functional>
+ #include <memory>
+ 
++#include <stdexcept>
++
+ class SharedObject {
+   public:
+     using Ptr = std::shared_ptr<SharedObject>;

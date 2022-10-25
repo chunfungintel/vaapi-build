@@ -1,0 +1,35 @@
+From 1a119c46a599054b3253f3d29036e54f2fbf90e0 Mon Sep 17 00:00:00 2001
+From: Han Bing <bing.han@intel.com>
+Date: Thu, 16 Jun 2022 12:40:03 +0800
+Subject: [PATCH] use topic name from env
+
+---
+ .../WorkloadCommonLib/WorkloadCommonLib/msg_bus.py    | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/source-python/WorkloadCommonLib/WorkloadCommonLib/msg_bus.py b/source-python/WorkloadCommonLib/WorkloadCommonLib/msg_bus.py
+index abb9bd2..5d42e27 100644
+--- a/source-python/WorkloadCommonLib/WorkloadCommonLib/msg_bus.py
++++ b/source-python/WorkloadCommonLib/WorkloadCommonLib/msg_bus.py
+@@ -28,12 +28,13 @@ class MQTT_MsgBus:
+         hostName = socket.gethostname()
+         pid = os.getpid()
+   
++        topicName = os.getenv('MqttTopic')
+         #Frame the Topic names
+-        self.ERROR_1_FMT = f'{hostName}:{appName}/{pid}/kpi/error/1'
+-        self.ERROR_2_FMT = f'{hostName}:{appName}/{pid}/kpi/error/2'
+-        self.WARNING_1_FMT = f'{hostName}:{appName}/{pid}/kpi/warning/1'
+-        self.WARNING_2_FMT = f'{hostName}:{appName}/{pid}/kpi/warning/2'
+-        self.STATUS_FMT = f'{hostName}:{appName}/{pid}/kpi/status'
++        self.ERROR_1_FMT = f'{topicName}/kpi/error/1'
++        self.ERROR_2_FMT = f'{topicName}/kpi/error/2'
++        self.WARNING_1_FMT = f'{topicName}/kpi/warning/1'
++        self.WARNING_2_FMT = f'{topicName}/kpi/warning/2'
++        self.STATUS_FMT = f'{topicName}/kpi/status'
+ 
+         def on_connect(client, userdata, flags, rc):
+             if rc == 0:
+-- 
+2.30.2
+
