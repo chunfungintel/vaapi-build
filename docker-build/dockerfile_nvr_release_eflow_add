@@ -52,17 +52,18 @@ WORKDIR /root
 # Build Dlstreamer
 RUN apt install -y python3-virtualenv && \
 python3 -m pip install virtualenv
-RUN git clone -b v1.6 https://github.com/dlstreamer/dlstreamer.git
-COPY docker/patches/0001-perf-count-for-v1.6.patch /root/dlstreamer/0001-perf-count-for-v1.6.patch
-COPY docker/patches/0002-fix-python-videoinfo.patch /root/dlstreamer/0002-fix-python-videoinfo.patch
-COPY docker/patches/0001-VAMemory.patch /root/dlstreamer/0001-VAMemory.patch
-WORKDIR /root/dlstreamer
-RUN git apply 0001-perf-count-for-v1.6.patch && \
-git apply 0002-fix-python-videoinfo.patch
-#RUN git apply 0001-VAMemory.patch
-RUN sed -i 's/VA_PROGRESSIVE/0/g' src/vaapi/video_preproc_vaapi/video_preproc_vaapi.cpp && \
-sed -i 's/VA_PROGRESSIVE/0/g' inference_backend/image_inference/async_with_va_api/va_api_wrapper/vaapi_context.cpp
-RUN mkdir -p build && cd /root/dlstreamer/build && \
+RUN --mount=type=secret,id=mynetrc,dst=/root/.netrc \
+git clone -b eflow https://github.com/SunJianIntel/dlstreamer.git /root/dlstreamer
+#RUN git clone -b v1.6 https://github.com/dlstreamer/dlstreamer.git
+#COPY docker/patches/0001-perf-count-for-v1.6.patch /root/dlstreamer/0001-perf-count-for-v1.6.patch
+#COPY docker/patches/0002-fix-python-videoinfo.patch /root/dlstreamer/0002-fix-python-videoinfo.patch
+#COPY docker/patches/0001-VAMemory.patch /root/dlstreamer/0001-VAMemory.patch
+#WORKDIR /root/dlstreamer
+#RUN git apply 0001-perf-count-for-v1.6.patch && \
+#git apply 0002-fix-python-videoinfo.patch
+#RUN sed -i 's/VA_PROGRESSIVE/0/g' src/vaapi/video_preproc_vaapi/video_preproc_vaapi.cpp && \
+#sed -i 's/VA_PROGRESSIVE/0/g' inference_backend/image_inference/async_with_va_api/va_api_wrapper/vaapi_context.cpp
+RUN cd /root/dlstreamer && mkdir -p build && cd build && \
 virtualenv -p /usr/bin/python3 .env3 --system-site-packages \
     && source .env3/bin/activate \
     && source /opt/intel/oneapi/compiler/latest/env/vars.sh \
