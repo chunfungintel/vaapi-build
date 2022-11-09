@@ -1,0 +1,298 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0c43590..45a9ec0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,30 +1,36 @@
+ # ==============================================================================
+ # Copyright (C) 2018-2022 Intel Corporation
+ #
+ # SPDX-License-Identifier: MIT
+ # ==============================================================================
+ 
+ cmake_minimum_required (VERSION 3.1)
+ 
+ project(DL_Streamer)
+ 
++IF(OV_HACK)
++    ADD_DEFINITIONS(-DOV_HACK)
++ELSE()
++    ADD_DEFINITIONS(-DOV_NOHACK)
++ENDIF(OV_HACK)
++
+ if(NOT(UNIX) AND NOT(WIN32))
+     message(FATAL_ERROR "Only UNIX and Windows supported")
+ endif()
+ 
+ if (NOT CMAKE_BUILD_TYPE)
+     set(CMAKE_BUILD_TYPE Release)
+     message(STATUS "CMAKE_BUILD_TYPE is undefined. Set default build type ${CMAKE_BUILD_TYPE}.")
+ endif()
+ 
+ # Define version
+ 
+ set(VERSION_MAJOR 1)
+ set(VERSION_MINOR 6)
+ set(VERSION_PATCH 0)
+ 
+ if (NOT DEFINED GIT_INFO OR "${GIT_INFO}" STREQUAL "")
+     set(GIT_INFO "0")
+     message(WARNING "GIT_INFO is undefined. Set default value ${GIT_INFO}.")
+ endif()
+ 
+diff --git a/gst/inference_elements/base/inference_impl.cpp b/gst/inference_elements/base/inference_impl.cpp
+index 65ec99f..b3192fd 100644
+--- a/gst/inference_elements/base/inference_impl.cpp
++++ b/gst/inference_elements/base/inference_impl.cpp
+@@ -526,41 +526,45 @@ bool InferenceImpl::FilterObjectClass(GstVideoRegionOfInterestMeta *roi) const {
+ bool InferenceImpl::FilterObjectClass(const std::string &object_class) const {
+     if (object_classes.empty())
+         return true;
+     return std::find(object_classes.cbegin(), object_classes.cend(), object_class) != object_classes.cend();
+ }
+ 
+ InferenceImpl::~InferenceImpl() {
+     for (auto proc : model.output_processor_info)
+         gst_structure_free(proc.second);
+ }
+ 
+ bool InferenceImpl::IsRoiSizeValid(const GstVideoRegionOfInterestMeta *roi_meta) {
+     return roi_meta->w > 1 && roi_meta->h > 1;
+ }
+ 
+ void InferenceImpl::PushOutput() {
+     ITT_TASK(__FUNCTION__);
+     while (!output_frames.empty()) {
+         auto &front = output_frames.front();
+         if (front.inference_count != 0) {
++#ifndef OV_HACK
+             break; // inference not completed yet
++#else
++            //front.inference_count = 0;
++#endif
+         }
+ 
+         for (const std::shared_ptr<InferenceFrame> inference_roi : front.inference_rois) {
+             for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
+                 UpdateClassificationHistory(&inference_roi->roi, front.filter, roi_classification);
+             }
+         }
+ 
+         PushBufferToSrcPad(front);
+         output_frames.pop_front();
+     }
+ }
+ 
+ void InferenceImpl::PushBufferToSrcPad(OutputFrame &output_frame) {
+     GstBuffer *buffer = output_frame.buffer;
+ 
+     if (!check_gva_base_inference_stopped(output_frame.filter)) {
+         GstFlowReturn ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(output_frame.filter), buffer);
+         if (ret != GST_FLOW_OK) {
+             GVA_WARNING("Inference gst_pad_push returned status: %d", ret);
+@@ -701,55 +705,65 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
+         }
+         default:
+             throw std::logic_error("Unsupported inference region type");
+         }
+     }
+ 
+     // count number ROIs to run inference on
+     size_t inference_count = (status == INFERENCE_EXECUTED) ? metas.size() : 0;
+     gva_base_inference->frame_num++;
+     if (gva_base_inference->frame_num == G_MAXUINT64) {
+         GST_WARNING_OBJECT(gva_base_inference,
+                            "The frame counter value limit has been reached. This value will be reset.");
+     }
+ 
+     // push into output_frames queue
+     {
+         ITT_TASK("InferenceImpl::TransformFrameIp pushIntoOutputFramesQueue");
+         std::lock_guard<std::mutex> guard(output_frames_mutex);
+         if (!inference_count && output_frames.empty()) {
+             // If we don't need to run inference and there are no frames queued for inference then finish transform
++	    PushOutput();
+             return GST_FLOW_OK;
+         }
+ 
+         // No need to unref buffer copy further
+         buf_guard.disable();
+ 
+         InferenceImpl::OutputFrame output_frame = {
+             .buffer = buffer, .inference_count = inference_count, .filter = gva_base_inference, .inference_rois = {}};
+         output_frames.push_back(output_frame);
+         if (!inference_count) {
++	    GVA_DEBUG("GST_BASE_TRANSFORM_FLOW_DROPPED");
++	    PushOutput();
+             return GST_BASE_TRANSFORM_FLOW_DROPPED;
+         }
+     }
+ 
++#ifdef OV_HACK
++    GstFlowReturn ret = SubmitImages(gva_base_inference, metas, buffer);
++    PushOutput();
++    GVA_DEBUG("GST_FLOW_OK");
++    return GST_FLOW_OK;
++#else
+     return SubmitImages(gva_base_inference, metas, buffer);
++#endif
+ }
+ 
+ void InferenceImpl::PushFramesIfInferenceFailed(
+     std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames) {
+     std::lock_guard<std::mutex> guard(output_frames_mutex);
+     for (auto &frame : frames) {
+         auto inference_result = std::dynamic_pointer_cast<InferenceResult>(frame);
+         /* InferenceResult is inherited from IFrameBase */
+         assert(inference_result.get() != nullptr && "Expected a valid InferenceResult");
+ 
+         std::shared_ptr<InferenceFrame> inference_roi = inference_result->inference_frame;
+         auto it =
+             std::find_if(output_frames.begin(), output_frames.end(), [inference_roi](const OutputFrame &output_frame) {
+                 return output_frame.buffer == inference_roi->buffer;
+             });
+ 
+         if (it != output_frames.end())
+             continue;
+ 
+         PushBufferToSrcPad(*it);
+diff --git a/inference_backend/image_inference/openvino/openvino_image_inference.cpp b/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+index 340d04d..c962e3c 100644
+--- a/inference_backend/image_inference/openvino/openvino_image_inference.cpp
++++ b/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+@@ -545,49 +545,56 @@ void OpenVINOImageInference::SubmitImage(
+ 
+     std::unique_lock<std::mutex> lk(requests_mutex_);
+     ++requests_processing_;
+     std::shared_ptr<BatchRequest> request = freeRequests.pop();
+ 
+     try {
+         if (DoNeedImagePreProcessing()) {
+             SubmitImageProcessing(
+                 image_layer, request, *frame->GetImage(),
+                 getImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
+                 frame->GetImageTransformationParams() // during CIPP will be filling of crop and aspect-ratio parameters
+             );
+             // After running this function self-managed image memory appears, and the old image memory can be released
+             frame->SetImage(nullptr);
+         } else {
+             BypassImageProcessing(image_layer, request, *frame->GetImage(), safe_convert<size_t>(batch_size));
+         }
+ 
+         ApplyInputPreprocessors(request, input_preprocessors);
+ 
+-        request->buffers.push_back(frame);
++        //request->buffers.push_back(frame);
+     } catch (const std::exception &e) {
+         std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
+     }
+ 
+     try {
+         // start inference asynchronously if enough buffers for batching
+         if (request->buffers.size() >= safe_convert<size_t>(batch_size)) {
++	    GVA_DEBUG("OVER batch_size");
++#ifndef OV_HACK
+             request->infer_request->StartAsync();
++#else
++            //request->infer_request->StartAsync();
++	    GVA_DEBUG("OVER batch_size OV_HACK");
++#endif
++            //freeRequests.push_front(request);
+         } else {
+             freeRequests.push_front(request);
+         }
+     } catch (const std::exception &e) {
+         std::throw_with_nested(std::runtime_error("Inference async start was failed."));
+     }
+ }
+ 
+ const std::string &OpenVINOImageInference::GetModelName() const {
+     return model_name;
+ }
+ 
+ size_t OpenVINOImageInference::GetNireq() const {
+     return safe_convert<size_t>(nireq);
+ }
+ 
+ void OpenVINOImageInference::GetModelImageInputInfo(size_t &width, size_t &height, size_t &batch_size, int &format,
+                                                     int &memory_type_) const {
+     if (inputs.empty())
+         throw std::invalid_argument("DL model input layers info is empty");
+@@ -644,64 +651,75 @@ std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelOutpu
+ }
+ 
+ void OpenVINOImageInference::Flush() {
+     GVA_DEBUG("enter");
+     ITT_TASK(__FUNCTION__);
+ 
+     // because Flush can execute by several threads for one InferenceImpl instance
+     // it must be synchronous.
+     std::unique_lock<std::mutex> requests_lk(requests_mutex_);
+ 
+     std::unique_lock<std::mutex> flush_lk(flush_mutex);
+ 
+     while (requests_processing_ != 0) {
+         auto request = freeRequests.pop();
+ 
+         if (request->buffers.size() > 0) {
+             try {
+                 // WA: Fill non-complete batch with last element. Can be removed once supported in OV
+                 if (batch_size > 1 && !DoNeedImagePreProcessing()) {
+                     for (int i = request->blob.size(); i < batch_size; i++)
+-                        request->blob.push_back(request->blob.back());
+-
++		{
++                        //request->blob.push_back(request->blob.back());
++		}
+                     auto blob = InferenceEngine::make_shared_blob<InferenceEngine::BatchedBlob>(request->blob);
+                     request->infer_request->SetBlob(image_layer, blob);
+                     request->blob.clear();
+                 }
+ 
+-                request->infer_request->StartAsync();
++                //request->infer_request->StartAsync();
+             } catch (const std::exception &e) {
+                 GVA_ERROR("Couldn't start inferece on flush: %s", e.what());
+                 this->handleError(request->buffers);
+                 FreeRequest(request);
+             }
+         } else {
+             freeRequests.push(request);
+         }
+ 
+         // wait_for unlocks flush_mutex until we get notify
+         // waiting will be continued if requests_processing_ != 0
++#if 0
+         request_processed_.wait_for(flush_lk, std::chrono::seconds(1), [this] { return requests_processing_ == 0; });
++#else
++	std::chrono::seconds(1);
++	std::chrono::seconds(1);
++	std::chrono::seconds(1);
++	std::chrono::seconds(1);
++	requests_processing_ = 0;
++#endif
++
+     }
+ }
+ 
+ void OpenVINOImageInference::Close() {
++    GVA_DEBUG("Close");
+     Flush();
+     while (!freeRequests.empty()) {
+         auto req = freeRequests.pop();
+         // as earlier set callbacks own shared pointers we need to set lambdas with the empty capture lists
+         req->infer_request->SetCompletionCallback([] {});
+         if (allocator) {
+             for (auto ac : req->alloc_context)
+                 allocator->Free(ac);
+         }
+     }
+ }
+ 
+ void OpenVINOImageInference::WorkingFunction(const std::shared_ptr<BatchRequest> &request) {
+     GVA_DEBUG("enter");
+     assert(request);
+ 
+     std::map<std::string, OutputBlob::Ptr> output_blobs;
+     for (auto output : outputs) {
+         const std::string &name = output.first;
+         output_blobs[name] = std::make_shared<OpenvinoOutputBlob>(request->infer_request->GetBlob(name));
