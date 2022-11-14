@@ -2,7 +2,7 @@
 
 
 #IMAGE_TAG=${1//dockerfile_}
-IMAGE_TAG=`git rev-parse --short=10 HEAD`
+IMAGE_TAG=`git rev-parse --short=10 HEAD`-`date '+%Y%m%d%H%M%S'`
 IMAGE_NAME=gar-registry.caas.intel.com/virtiot/vaapi-dxg:${IMAGE_TAG}
 DOCKERFILE=${1}
 
